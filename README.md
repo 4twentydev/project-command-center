@@ -5,7 +5,7 @@ A dark-first home base for software, CNC, business, and experimental projects. B
 ## Start locally
 
 ```bash
-git clone <your-repository-url>
+git clone git@github.com:4twentydev/project-command-center.git
 cd project-command-center
 bun install
 bun dev
@@ -22,11 +22,12 @@ Replace the placeholder GitHub and Vercel links with each project’s real URLs.
 ## Deploy
 
 ```bash
+vercel link --project project-command-center
 vercel
 vercel --prod
 ```
 
-No environment variables are required for this static version. Connect the repository in Vercel for automatic preview and production deployments.
+No environment variables are required for this static version. The expected production URL is `https://project-command-center.vercel.app`. Connect `4twentydev/project-command-center` in Vercel for automatic preview and production deployments.
 
 ## Structure
 
