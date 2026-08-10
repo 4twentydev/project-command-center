@@ -8,10 +8,11 @@ A dark-first public studio site and private home base for software, CNC, busines
 git clone git@github.com:4twentydev/project-command-center.git
 cd project-command-center
 bun install
+bun run db:migrate
 bun dev
 ```
 
-Open `http://localhost:3000`. The public site lives at `/`, owner login at `/login`, passkey management at `/account`, and the private command center at `/dashboard`. Use `bun run build` to verify the production build.
+Open `http://localhost:3000`. The public site lives at `/`, owner login at `/login`, passkey management at `/account`, and the private command center at `/dashboard`. Run `bun run db:migrate` after pulling schema changes, and use `bun run build` to verify the production build.
 
 ## Authentication
 

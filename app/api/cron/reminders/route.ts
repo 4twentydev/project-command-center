@@ -9,7 +9,6 @@ export async function GET(request: NextRequest) {
   if (!process.env.CRON_SECRET || request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (!process.env.DATABASE_URL) return Response.json({ error: "Database unavailable" }, { status: 503 });
   const sql = neon(process.env.DATABASE_URL);
-  await sql`CREATE TABLE IF NOT EXISTS push_subscriptions (endpoint TEXT PRIMARY KEY, subscription JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`;
   const [workspaceRows, subscriptionRows] = await Promise.all([
     sql`SELECT data FROM workspaces WHERE id = 'primary' LIMIT 1`,
     sql`SELECT endpoint, subscription FROM push_subscriptions`,

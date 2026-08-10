@@ -12,31 +12,11 @@ function getSql() {
   return neon(databaseUrl);
 }
 
-async function ensureSchema() {
-  const sql = getSql();
-  await sql`
-    CREATE TABLE IF NOT EXISTS workspaces (
-      id TEXT PRIMARY KEY,
-      data JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
-  await sql`
-    CREATE TABLE IF NOT EXISTS workspace_snapshots (
-      id BIGSERIAL PRIMARY KEY,
-      workspace_id TEXT NOT NULL,
-      data JSONB NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `;
-  return sql;
-}
-
 export async function GET(request: Request) {
   const unauthorized = await requireOwner(request.headers);
   if (unauthorized) return unauthorized;
   try {
-    const sql = await ensureSchema();
+    const sql = getSql();
     const rows = await sql`SELECT data, updated_at FROM workspaces WHERE id = ${workspaceId} LIMIT 1`;
     const snapshots = await sql`SELECT created_at FROM workspace_snapshots WHERE workspace_id = ${workspaceId} ORDER BY created_at DESC LIMIT 1`;
     if (!rows.length) return NextResponse.json({ workspace: null, updatedAt: null, lastSnapshotAt: snapshots[0]?.created_at ?? null });
@@ -51,7 +31,7 @@ export async function POST(request: Request) {
   const unauthorized = await requireOwner(request.headers);
   if (unauthorized) return unauthorized;
   try {
-    const sql = await ensureSchema();
+    const sql = getSql();
     const rows = await sql`
       INSERT INTO workspace_snapshots (workspace_id, data)
       SELECT id, data FROM workspaces WHERE id = ${workspaceId}
@@ -71,7 +51,7 @@ export async function PUT(request: Request) {
   try {
     const workspace = await request.json();
     if (!isWorkspaceData(workspace)) return NextResponse.json({ error: "Invalid workspace data" }, { status: 400 });
-    const sql = await ensureSchema();
+    const sql = getSql();
     const serialized = JSON.stringify(workspace);
     const rows = await sql`
       INSERT INTO workspaces (id, data, updated_at)

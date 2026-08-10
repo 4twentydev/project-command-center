@@ -24,19 +24,7 @@ export type ContactInquiry = {
 export async function contactDatabase() {
   const databaseURL = process.env.DATABASE_URL;
   if (!databaseURL || databaseURL === "[SENSITIVE]") throw new Error("DATABASE_URL is not configured");
-  const sql = neon(databaseURL);
-  await sql`CREATE TABLE IF NOT EXISTS contact_inquiries (
-    id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, company TEXT,
-    project_type TEXT, budget TEXT, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'new',
-    ip_hash TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`;
-  await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''`;
-  await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS follow_up_at TIMESTAMPTZ`;
-  await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS converted_project_id TEXT`;
-  await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS notification_id TEXT`;
-  await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS notification_status TEXT NOT NULL DEFAULT 'not_configured'`;
-  await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
-  return sql;
+  return neon(databaseURL);
 }
 
 export async function listContactInquiries(status?: LeadStatus) {
@@ -49,13 +37,13 @@ export async function listContactInquiries(status?: LeadStatus) {
 
 export async function countDueFollowUps() {
   const sql = await contactDatabase();
-  const rows = await sql`SELECT COUNT(*)::int AS count FROM contact_inquiries WHERE follow_up_at <= NOW() AND status NOT IN ('won', 'lost', 'archived')`;
+  const rows = await sql`SELECT COUNT(*)::int AS count FROM contact_inquiries WHERE (follow_up_at AT TIME ZONE 'America/Denver')::date <= (NOW() AT TIME ZONE 'America/Denver')::date AND status NOT IN ('won', 'lost', 'archived')`;
   return Number(rows[0]?.count ?? 0);
 }
 
 export async function listDueFollowUps() {
   const sql = await contactDatabase();
-  const rows = await sql`SELECT * FROM contact_inquiries WHERE follow_up_at <= NOW() AND status NOT IN ('won', 'lost', 'archived') ORDER BY follow_up_at ASC LIMIT 100`;
+  const rows = await sql`SELECT * FROM contact_inquiries WHERE (follow_up_at AT TIME ZONE 'America/Denver')::date <= (NOW() AT TIME ZONE 'America/Denver')::date AND status NOT IN ('won', 'lost', 'archived') ORDER BY follow_up_at ASC LIMIT 100`;
   return rows.map(mapInquiry) satisfies ContactInquiry[];
 }
 
