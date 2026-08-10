@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { contactDatabase } from "@/lib/contact-inquiries";
 import { recordConversionEvent } from "@/lib/conversion-analytics";
+import { workflowAuditEngagement } from "@/lib/engagements";
 import { sendLeadNotification } from "@/lib/lead-notification";
 import { hashedRequestAddress } from "@/lib/request-privacy";
 import { workflowAuditIntake, workflowAuditPayload, type WorkflowAuditErrors } from "@/lib/workflow-audit";
@@ -29,12 +30,12 @@ export async function submitWorkflowAudit(_: WorkflowAuditState, formData: FormD
 
   const result = await processWorkflowAudit(payload, {
     countRecent: async () => {
-      const rows = await sql`SELECT COUNT(*)::int AS count FROM contact_inquiries WHERE ip_hash = ${ipHash} AND project_type = 'Workflow audit' AND created_at > NOW() - INTERVAL '1 hour'`;
+      const rows = await sql`SELECT COUNT(*)::int AS count FROM contact_inquiries WHERE ip_hash = ${ipHash} AND LOWER(project_type) = 'workflow audit' AND created_at > NOW() - INTERVAL '1 hour'`;
       return Number(rows[0]?.count ?? 0);
     },
     insert: async (values, submissionKey) => {
       const structuredIntake = workflowAuditIntake(values);
-      const rows = await sql`INSERT INTO contact_inquiries (name, email, company, project_type, message, ip_hash, intake, submission_key) VALUES (${values.name}, ${values.email}, ${values.business}, 'Workflow audit', ${values.frustratingWorkflow}, ${ipHash}, ${JSON.stringify(structuredIntake)}::jsonb, ${submissionKey}) ON CONFLICT DO NOTHING RETURNING id`;
+      const rows = await sql`INSERT INTO contact_inquiries (name, email, company, project_type, budget, message, ip_hash, intake, submission_key) VALUES (${values.name}, ${values.email}, ${values.business}, ${workflowAuditEngagement.title}, ${workflowAuditEngagement.priceLabel}, ${values.frustratingWorkflow}, ${ipHash}, ${JSON.stringify(structuredIntake)}::jsonb, ${submissionKey}) ON CONFLICT DO NOTHING RETURNING id`;
       return rows[0]?.id ? Number(rows[0].id) : null;
     },
   });
@@ -51,7 +52,7 @@ export async function submitWorkflowAudit(_: WorkflowAuditState, formData: FormD
   after(async () => {
     const notificationTask = (async () => {
       try {
-        const notification = await sendLeadNotification({ id: result.id, name: result.values.name, email: result.values.email, company: result.values.business, projectType: "Workflow audit", budget: "Scope and fee to be confirmed", message: result.values.frustratingWorkflow, intake: workflowAuditIntake(result.values) });
+        const notification = await sendLeadNotification({ id: result.id, name: result.values.name, email: result.values.email, company: result.values.business, projectType: workflowAuditEngagement.title, budget: workflowAuditEngagement.priceLabel, message: result.values.frustratingWorkflow, intake: workflowAuditIntake(result.values) });
         await sql`UPDATE contact_inquiries SET notification_id = ${notification.sent ? notification.id : null}, notification_status = ${notification.sent ? "sent" : "not_configured"}, updated_at = NOW() WHERE id = ${result.id}`;
       } catch (error) {
         await sql`UPDATE contact_inquiries SET notification_status = 'failed', updated_at = NOW() WHERE id = ${result.id}`;

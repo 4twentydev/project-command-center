@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${geist.variable} ${geistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth" className={`${geist.variable} ${geistMono.variable}`}>
       <body className="antialiased"><ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="work-ctrl-theme">{children}<ServiceWorkerRegister /></ThemeProvider></body>
     </html>
   );
