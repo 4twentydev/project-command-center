@@ -29,6 +29,7 @@ const accentStyles = {
 };
 
 type ComposerMode = "project" | "task" | "idea" | null;
+type SyncState = "loading" | "saved" | "saving" | "offline";
 
 function ProjectEditor({ project, onClose, onSave }: { project: Project; onClose: () => void; onSave: (project: Project) => void }) {
   const [draft, setDraft] = useState(project);
@@ -141,12 +142,54 @@ export function Dashboard() {
   const [kind, setKind] = useState<"All" | ProjectKind>("All");
   const [composer, setComposer] = useState<ComposerMode>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [syncState, setSyncState] = useState<SyncState>("loading");
 
   useEffect(() => {
-    const saved = localStorage.getItem(workspaceStorageKey);
-    queueMicrotask(() => { setWorkspace(saved ? JSON.parse(saved) : emptyWorkspace); setReady(true); });
+    let cancelled = false;
+    async function hydrate() {
+      const saved = localStorage.getItem(workspaceStorageKey);
+      const localWorkspace: Workspace = saved ? JSON.parse(saved) : emptyWorkspace;
+      try {
+        const response = await fetch("/api/workspace", { cache: "no-store" });
+        if (!response.ok) throw new Error("Cloud read failed");
+        const payload = await response.json() as { workspace: Workspace | null };
+        if (cancelled) return;
+        if (payload.workspace) {
+          setWorkspace(payload.workspace);
+          localStorage.setItem(workspaceStorageKey, JSON.stringify(payload.workspace));
+        } else {
+          setWorkspace(localWorkspace);
+          if (localWorkspace.projects.length || localWorkspace.tasks.length || localWorkspace.activity.length) {
+            await fetch("/api/workspace", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(localWorkspace) });
+          }
+        }
+        setSyncState("saved");
+      } catch {
+        if (cancelled) return;
+        setWorkspace(localWorkspace);
+        setSyncState("offline");
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    }
+    void hydrate();
+    return () => { cancelled = true; };
   }, []);
-  useEffect(() => { if (ready) localStorage.setItem(workspaceStorageKey, JSON.stringify(workspace)); }, [ready, workspace]);
+  useEffect(() => {
+    if (!ready) return;
+    localStorage.setItem(workspaceStorageKey, JSON.stringify(workspace));
+    const timer = window.setTimeout(async () => {
+      setSyncState("saving");
+      try {
+        const response = await fetch("/api/workspace", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(workspace) });
+        if (!response.ok) throw new Error("Cloud write failed");
+        setSyncState("saved");
+      } catch {
+        setSyncState("offline");
+      }
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [ready, workspace]);
 
   function record(message: string) {
     return { id: crypto.randomUUID(), message, createdAt: new Date().toISOString() };
@@ -171,11 +214,11 @@ export function Dashboard() {
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/70 bg-card/30 p-4 backdrop-blur lg:flex">
           <div className="flex h-14 items-center gap-3 px-2"><div className="grid size-9 place-items-center rounded-lg border border-primary/30 bg-primary/10 text-primary"><Command className="size-5" /></div><div><div className="text-sm font-bold tracking-tight">WORK//CTRL</div><div className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">Project operating system</div></div></div>
           <nav className="mt-8 space-y-1 text-sm"><a className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2.5 font-medium text-primary" href="#"><LayoutDashboard className="size-4" />Command center</a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#projects"><Grid2X2 className="size-4" />Projects<span className="ml-auto font-mono text-[10px]">{workspace.projects.length}</span></a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#tasks"><ListChecks className="size-4" />Tasks<span className="ml-auto font-mono text-[10px]">{openTasks}</span></a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#activity"><Activity className="size-4" />Activity</a></nav>
-          <div className="mt-auto rounded-xl border border-border bg-background/60 p-3"><div className="mb-2 flex items-center gap-2 text-xs font-medium"><TerminalSquare className="size-4 text-primary" />Local persistence</div><div className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Saved automatically · This browser</div></div>
+          <div className="mt-auto rounded-xl border border-border bg-background/60 p-3"><div className="mb-2 flex items-center gap-2 text-xs font-medium"><TerminalSquare className="size-4 text-primary" />Cloud workspace</div><div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground"><span className={cn("size-1.5 rounded-full", syncState === "saved" ? "bg-emerald-400" : syncState === "offline" ? "bg-amber-400" : "animate-pulse bg-primary")} />{syncState === "loading" ? "Loading cloud data" : syncState === "saving" ? "Saving changes" : syncState === "offline" ? "Offline · Saved locally" : "Synced across devices"}</div></div>
         </aside>
 
         <main className="min-w-0 flex-1 px-4 pb-16 sm:px-6 xl:px-10">
-          <header className="flex h-20 items-center justify-between border-b border-border/60"><div className="flex items-center gap-2 text-xs text-muted-foreground"><CircleDot className="size-3 text-emerald-400" /><span className="hidden sm:inline">Workspace ready</span></div><div className="flex items-center gap-2"><ThemeToggle /><Button onClick={() => setComposer("project")}><Plus />New project</Button></div></header>
+          <header className="flex h-20 items-center justify-between border-b border-border/60"><div className="flex items-center gap-2 text-xs text-muted-foreground"><CircleDot className={cn("size-3", syncState === "offline" ? "text-amber-400" : "text-emerald-400")} /><span className="hidden sm:inline">{syncState === "offline" ? "Working offline" : syncState === "saving" ? "Saving…" : "Workspace ready"}</span></div><div className="flex items-center gap-2"><ThemeToggle /><Button onClick={() => setComposer("project")}><Plus />New project</Button></div></header>
 
           <section className="py-10"><div className="mb-8"><div className="mb-3 font-mono text-[10px] uppercase tracking-[0.25em] text-primary">Personal operations</div><h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Build what matters next.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Projects, tasks, ideas, and movement—captured in one clean operating view.</p></div><div className="grid gap-3 sm:grid-cols-3"><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Projects</div><div className="mt-1 text-2xl font-semibold">{workspace.projects.length}</div></div><Grid2X2 className="size-5 text-primary" /></CardContent></Card><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Open tasks</div><div className="mt-1 text-2xl font-semibold">{openTasks}</div></div><ListChecks className="size-5 text-amber-400" /></CardContent></Card><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Signals logged</div><div className="mt-1 text-2xl font-semibold">{workspace.activity.length}</div></div><Activity className="size-5 text-emerald-400" /></CardContent></Card></div></section>
 

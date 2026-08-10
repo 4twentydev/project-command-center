@@ -1,0 +1,61 @@
+import { neon } from "@neondatabase/serverless";
+import { NextResponse } from "next/server";
+import type { Workspace } from "@/lib/workspace";
+
+export const runtime = "nodejs";
+const workspaceId = "primary";
+
+function getSql() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error("DATABASE_URL is not configured");
+  return neon(databaseUrl);
+}
+
+async function ensureSchema() {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS workspaces (
+      id TEXT PRIMARY KEY,
+      data JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  return sql;
+}
+
+function isWorkspace(value: unknown): value is Workspace {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<Workspace>;
+  return Array.isArray(candidate.projects) && Array.isArray(candidate.tasks) && Array.isArray(candidate.activity);
+}
+
+export async function GET() {
+  try {
+    const sql = await ensureSchema();
+    const rows = await sql`SELECT data, updated_at FROM workspaces WHERE id = ${workspaceId} LIMIT 1`;
+    if (!rows.length) return NextResponse.json({ workspace: null, updatedAt: null });
+    return NextResponse.json({ workspace: rows[0].data, updatedAt: rows[0].updated_at });
+  } catch (error) {
+    console.error("Workspace read failed", error);
+    return NextResponse.json({ error: "Cloud storage is unavailable" }, { status: 503 });
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const workspace = await request.json();
+    if (!isWorkspace(workspace)) return NextResponse.json({ error: "Invalid workspace data" }, { status: 400 });
+    const sql = await ensureSchema();
+    const serialized = JSON.stringify(workspace);
+    const rows = await sql`
+      INSERT INTO workspaces (id, data, updated_at)
+      VALUES (${workspaceId}, ${serialized}::jsonb, NOW())
+      ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()
+      RETURNING updated_at
+    `;
+    return NextResponse.json({ ok: true, updatedAt: rows[0].updated_at });
+  } catch (error) {
+    console.error("Workspace write failed", error);
+    return NextResponse.json({ error: "Cloud storage is unavailable" }, { status: 503 });
+  }
+}

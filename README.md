@@ -15,11 +15,11 @@ Open `http://localhost:3000`. Use `bun run build` to verify the production build
 
 ## Edit projects
 
-Projects, tasks, captured ideas, and activity are now created in the dashboard and automatically persisted to browser local storage under `work-ctrl-workspace-v1`. The app starts with a clean slate.
+Projects, tasks, captured ideas, and activity are persisted to Neon Postgres through `/api/workspace`, with browser local storage under `work-ctrl-workspace-v1` retained as an offline cache. The first cloud load automatically migrates existing local data when the database is empty.
 
 Projects can be edited directly from their card, including status, workspace, stack, momentum, next action, repository, and deployment links.
 
-This local-first version requires no database or environment variables. Data remains in the same browser profile; replace the storage adapter with a hosted database when cross-device sync or multiple users are needed.
+The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Deploy
 
