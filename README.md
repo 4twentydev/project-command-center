@@ -45,6 +45,8 @@ Connected project discovery imports selected GitHub repositories, matches same-n
 
 Cloud-synced workspace settings store display identity, timezone-aware reminders, GitHub and Vercel account identity, stalled-project sensitivity, and the default priority for newly created tasks.
 
+Operating analytics calculate seven-day throughput, thirty-day completion rate, average task cycle time, daily completion trends, open-work priority mix, and project status distribution without sending analytics data to a third party.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence
