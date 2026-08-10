@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Activity, ArrowUpRight, CheckCircle2, CircleDot, Clock3, Command, ExternalLink,
-  Github, Grid2X2, LayoutDashboard, Lightbulb, ListChecks, ListFilter, Pencil,
-  Plus, Rocket, Search, Sparkles, Square, TerminalSquare, Trash2, X,
+  Activity, ArrowUpRight, CheckCircle2, CircleDot, Clock3, Cloud, Command, ExternalLink,
+  GitCommitHorizontal, Github, Grid2X2, LayoutDashboard, Lightbulb, ListChecks, ListFilter, Pencil,
+  Plus, RefreshCw, Rocket, Search, Sparkles, Square, TerminalSquare, Trash2, X,
 } from "lucide-react";
 import type { Project, ProjectKind, ProjectStatus } from "@/lib/projects";
 import { emptyWorkspace, workspaceStorageKey, type Workspace } from "@/lib/workspace";
@@ -30,6 +30,11 @@ const accentStyles = {
 
 type ComposerMode = "project" | "task" | "idea" | null;
 type SyncState = "loading" | "saved" | "saving" | "offline";
+type ProjectIntelligence = {
+  github: null | { available: boolean; private?: boolean; defaultBranch?: string; openIssues?: number; pushedAt?: string; latestCommit?: null | { sha: string; message: string; url: string; date?: string } };
+  vercel: null | { reachable: boolean; state: string | null; target?: string | null; createdAt?: number; url: string; checkedAt: string };
+  fetchedAt: string;
+};
 
 function ProjectEditor({ project, onClose, onSave }: { project: Project; onClose: () => void; onSave: (project: Project) => void }) {
   const [draft, setDraft] = useState(project);
@@ -119,7 +124,7 @@ function Composer({ mode, projects, onClose, onProject, onTask, onIdea }: {
   );
 }
 
-function ProjectCard({ project, onDelete, onEdit }: { project: Project; onDelete: () => void; onEdit: () => void }) {
+function ProjectCard({ project, intelligence, onDelete, onEdit }: { project: Project; intelligence?: ProjectIntelligence; onDelete: () => void; onEdit: () => void }) {
   return (
     <Card className="group relative overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-xl">
       <div className={cn("absolute inset-x-0 top-0 h-px bg-gradient-to-r", accentStyles[project.accent])} />
@@ -129,6 +134,10 @@ function ProjectCard({ project, onDelete, onEdit }: { project: Project; onDelete
         <div className="mt-5 flex flex-wrap gap-1.5"><Badge className={statusStyles[project.status]}>{project.status}</Badge>{project.stack.map((item) => <Badge key={item} className="border-border bg-secondary/70 text-muted-foreground">{item}</Badge>)}</div>
         <div className="mt-6 border-t border-border/70 pt-4"><div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-muted-foreground"><span>Momentum</span><span>{project.progress}%</span></div><div className="h-1 overflow-hidden rounded-full bg-secondary"><div className={cn("h-full rounded-full bg-gradient-to-r", accentStyles[project.accent])} style={{ width: `${project.progress}%` }} /></div></div>
         <div className="mt-4 rounded-lg border border-border/60 bg-background/50 p-3 text-xs leading-5 text-muted-foreground"><span className="mr-1.5 font-semibold text-foreground">Next:</span>{project.note}</div>
+        {(project.repo || project.deployment) && <div className="mt-3 space-y-2 rounded-lg border border-border/60 bg-background/40 p-3">
+          {project.repo && <div className="flex items-start gap-2 text-[11px]"><GitCommitHorizontal className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" /><div className="min-w-0 flex-1">{intelligence?.github?.latestCommit ? <><a className="block truncate font-medium hover:text-primary" href={intelligence.github.latestCommit.url} target="_blank" rel="noreferrer">{intelligence.github.latestCommit.message}</a><span className="font-mono text-[9px] text-muted-foreground">{intelligence.github.latestCommit.sha} · {intelligence.github.defaultBranch}</span></> : <span className="text-muted-foreground">{intelligence ? "Repository unavailable" : "Checking repository…"}</span>}</div></div>}
+          {project.deployment && <div className="flex items-center gap-2 text-[11px]"><Cloud className="size-3.5 text-muted-foreground" /><span className="text-muted-foreground">Deployment</span><span className={cn("ml-auto flex items-center gap-1.5 font-medium", intelligence?.vercel?.reachable ? "text-emerald-500" : intelligence ? "text-amber-500" : "text-muted-foreground")}><span className={cn("size-1.5 rounded-full", intelligence?.vercel?.reachable ? "bg-emerald-400" : "bg-muted-foreground/40")} />{intelligence?.vercel?.state ?? (intelligence?.vercel?.reachable ? "ONLINE" : intelligence ? "UNAVAILABLE" : "CHECKING")}</span></div>}
+        </div>}
         <div className="mt-auto flex items-center justify-between pt-5"><span className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground"><Clock3 className="size-3" />{project.updatedLabel}</span><div className="flex gap-1">{project.repo && <Button asChild size="icon" variant="ghost"><a href={project.repo} target="_blank" rel="noreferrer"><Github /></a></Button>}{project.deployment && <Button asChild size="icon" variant="ghost"><a href={project.deployment} target="_blank" rel="noreferrer"><ArrowUpRight /></a></Button>}</div></div>
       </CardContent>
     </Card>
@@ -143,6 +152,8 @@ export function Dashboard() {
   const [composer, setComposer] = useState<ComposerMode>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [syncState, setSyncState] = useState<SyncState>("loading");
+  const [intelligence, setIntelligence] = useState<Record<string, ProjectIntelligence>>({});
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,6 +202,28 @@ export function Dashboard() {
     return () => window.clearTimeout(timer);
   }, [ready, workspace]);
 
+  const refreshIntelligence = useCallback(async () => {
+    const linked = workspace.projects.filter((project) => project.repo || project.deployment);
+    if (!linked.length) return;
+    setRefreshing(true);
+    const results = await Promise.all(linked.map(async (project) => {
+      const params = new URLSearchParams();
+      if (project.repo) params.set("repo", project.repo);
+      if (project.deployment) params.set("deployment", project.deployment);
+      const response = await fetch(`/api/project-status?${params}`, { cache: "no-store" });
+      return [project.id, response.ok ? await response.json() as ProjectIntelligence : null] as const;
+    }));
+    setIntelligence((current) => ({ ...current, ...Object.fromEntries(results.filter((entry): entry is readonly [string, ProjectIntelligence] => Boolean(entry[1]))) }));
+    setRefreshing(false);
+  }, [workspace.projects]);
+
+  const intelligenceKey = workspace.projects.map((project) => `${project.id}:${project.repo ?? ""}:${project.deployment ?? ""}`).join("|");
+  useEffect(() => {
+    if (!ready) return;
+    const timer = window.setTimeout(() => void refreshIntelligence(), 0);
+    return () => window.clearTimeout(timer);
+  }, [ready, intelligenceKey, refreshIntelligence]);
+
   function record(message: string) {
     return { id: crypto.randomUUID(), message, createdAt: new Date().toISOString() };
   }
@@ -218,12 +251,12 @@ export function Dashboard() {
         </aside>
 
         <main className="min-w-0 flex-1 px-4 pb-16 sm:px-6 xl:px-10">
-          <header className="flex h-20 items-center justify-between border-b border-border/60"><div className="flex items-center gap-2 text-xs text-muted-foreground"><CircleDot className={cn("size-3", syncState === "offline" ? "text-amber-400" : "text-emerald-400")} /><span className="hidden sm:inline">{syncState === "offline" ? "Working offline" : syncState === "saving" ? "Saving…" : "Workspace ready"}</span></div><div className="flex items-center gap-2"><ThemeToggle /><Button onClick={() => setComposer("project")}><Plus />New project</Button></div></header>
+          <header className="flex h-20 items-center justify-between border-b border-border/60"><div className="flex items-center gap-2 text-xs text-muted-foreground"><CircleDot className={cn("size-3", syncState === "offline" ? "text-amber-400" : "text-emerald-400")} /><span className="hidden sm:inline">{syncState === "offline" ? "Working offline" : syncState === "saving" ? "Saving…" : "Workspace ready"}</span></div><div className="flex items-center gap-2"><Button variant="outline" size="icon" onClick={() => void refreshIntelligence()} aria-label="Refresh project status"><RefreshCw className={cn(refreshing && "animate-spin")} /></Button><ThemeToggle /><Button onClick={() => setComposer("project")}><Plus />New project</Button></div></header>
 
           <section className="py-10"><div className="mb-8"><div className="mb-3 font-mono text-[10px] uppercase tracking-[0.25em] text-primary">Personal operations</div><h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Build what matters next.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Projects, tasks, ideas, and movement—captured in one clean operating view.</p></div><div className="grid gap-3 sm:grid-cols-3"><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Projects</div><div className="mt-1 text-2xl font-semibold">{workspace.projects.length}</div></div><Grid2X2 className="size-5 text-primary" /></CardContent></Card><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Open tasks</div><div className="mt-1 text-2xl font-semibold">{openTasks}</div></div><ListChecks className="size-5 text-amber-400" /></CardContent></Card><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Signals logged</div><div className="mt-1 text-2xl font-semibold">{workspace.activity.length}</div></div><Activity className="size-5 text-emerald-400" /></CardContent></Card></div></section>
 
           <section id="projects"><div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"><div><h2 className="text-base font-semibold">Project grid</h2><p className="mt-1 text-xs text-muted-foreground">{filtered.length} projects visible</p></div><div className="flex flex-col gap-3 sm:flex-row"><label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search projects..." className="h-9 w-full rounded-md border border-border bg-card pl-9 pr-3 text-sm outline-none sm:w-64" /></label><div className="flex items-center gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1"><ListFilter className="mx-2 size-3.5 shrink-0 text-muted-foreground" />{kinds.map((item) => <button key={item} onClick={() => setKind(item)} className={cn("rounded-md px-2.5 py-1.5 text-xs transition", kind === item ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent")}>{item}</button>)}</div></div></div>
-            {filtered.length ? <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">{filtered.map((project) => <ProjectCard key={project.id} project={project} onEdit={() => setEditingProject(project)} onDelete={() => deleteProject(project.id)} />)}</div> : <Card><CardContent className="grid min-h-64 place-items-center text-center"><div><Sparkles className="mx-auto mb-3 size-7 text-primary" /><h3 className="font-medium">Clean slate</h3><p className="mt-1 text-sm text-muted-foreground">Create your first project when you&apos;re ready.</p><Button className="mt-5" onClick={() => setComposer("project")}><Plus />New project</Button></div></CardContent></Card>}
+            {filtered.length ? <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">{filtered.map((project) => <ProjectCard key={project.id} project={project} intelligence={intelligence[project.id]} onEdit={() => setEditingProject(project)} onDelete={() => deleteProject(project.id)} />)}</div> : <Card><CardContent className="grid min-h-64 place-items-center text-center"><div><Sparkles className="mx-auto mb-3 size-7 text-primary" /><h3 className="font-medium">Clean slate</h3><p className="mt-1 text-sm text-muted-foreground">Create your first project when you&apos;re ready.</p><Button className="mt-5" onClick={() => setComposer("project")}><Plus />New project</Button></div></CardContent></Card>}
           </section>
 
           <section className="mt-10 grid gap-4 xl:grid-cols-[1.15fr_1fr]">

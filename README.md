@@ -21,6 +21,12 @@ Projects can be edited directly from their card, including status, workspace, st
 
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
+## Live project intelligence
+
+Project cards with GitHub or deployment URLs automatically retrieve repository and deployment status through the server-side `/api/project-status` route. Public GitHub repositories and deployment reachability work without credentials.
+
+For private repositories and detailed Vercel deployment state, configure server-only `GITHUB_TOKEN`, `VERCEL_TOKEN`, and optionally `VERCEL_TEAM_ID` environment variables in Vercel. Tokens are never returned to the browser.
+
 ## Deploy
 
 ```bash
