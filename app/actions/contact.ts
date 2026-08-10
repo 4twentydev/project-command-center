@@ -46,7 +46,15 @@ export async function submitContact(_: ContactState, formData: FormData): Promis
     if (Number(recent[0]?.count ?? 0) >= 5) return { status: "error", message: "That channel has received several messages recently. Try again later or email directly." };
     const inserted = await sql`INSERT INTO contact_inquiries (name, email, company, project_type, budget, message, ip_hash) VALUES (${name}, ${email}, ${company || null}, ${projectType || null}, ${budget || null}, ${message}, ${ipHash}) RETURNING id`;
     const inquiryId = Number(inserted[0].id);
-    after(async () => { try { await sendLeadNotification({ id: inquiryId, name, email, company, projectType, budget, message }); } catch (error) { console.error("Lead notification failed", error); } });
+    after(async () => {
+      try {
+        const notification = await sendLeadNotification({ id: inquiryId, name, email, company, projectType, budget, message });
+        await sql`UPDATE contact_inquiries SET notification_id = ${notification.sent ? notification.id : null}, notification_status = ${notification.sent ? "sent" : "not_configured"}, updated_at = NOW() WHERE id = ${inquiryId}`;
+      } catch (error) {
+        await sql`UPDATE contact_inquiries SET notification_status = 'failed', updated_at = NOW() WHERE id = ${inquiryId}`;
+        console.error("Lead notification failed", error);
+      }
+    });
     return { status: "success", message: "Message received. I’ll review it and get back to you directly." };
   } catch (error) {
     console.error("Contact inquiry failed", error);

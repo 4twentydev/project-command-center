@@ -12,7 +12,7 @@ export async function sendLeadNotification(lead: LeadNotification) {
   if (!apiKey || !recipient) return { sent: false as const, reason: "not-configured" as const };
   const resend = new Resend(apiKey);
   const from = process.env.CONTACT_FROM_EMAIL ?? "4TWENTY.DEV <onboarding@resend.dev>";
-  const { error } = await resend.emails.send({
+  const { data, error } = await resend.emails.send({
     from,
     to: recipient,
     replyTo: lead.email,
@@ -20,5 +20,5 @@ export async function sendLeadNotification(lead: LeadNotification) {
     html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#171717"><p style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#0891b2">4TWENTY.DEV · New inquiry</p><h1 style="font-size:26px;margin:12px 0">${escapeHTML(lead.name)}</h1><p><strong>Email:</strong> <a href="mailto:${escapeHTML(lead.email)}">${escapeHTML(lead.email)}</a><br><strong>Company:</strong> ${escapeHTML(lead.company || "Not provided")}<br><strong>Project:</strong> ${escapeHTML(lead.projectType || "Not selected")}<br><strong>Budget:</strong> ${escapeHTML(lead.budget || "Not selected")}</p><div style="margin:24px 0;padding:18px;background:#f4f4f5;border-radius:10px;white-space:pre-wrap;line-height:1.6">${escapeHTML(lead.message)}</div><p><a href="https://www.4twenty.dev/dashboard/leads">Open Client Leads</a></p></div>`,
   }, { headers: { "Idempotency-Key": `contact-inquiry-${lead.id}` } });
   if (error) throw new Error(error.message);
-  return { sent: true as const };
+  return { sent: true as const, id: data?.id ?? null };
 }

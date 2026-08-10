@@ -73,6 +73,8 @@ The public studio site includes clearly staged case studies for WORK//CTRL, Sign
 
 Authenticated owners can review and manage those inquiries at `/dashboard/leads`, move them through new/contacted/archived states, and launch a pre-addressed email reply. Optional Resend notifications use `RESEND_API_KEY`, `CONTACT_NOTIFICATION_EMAIL`, and `CONTACT_FROM_EMAIL`; inquiry storage succeeds even when email delivery is not configured or temporarily fails.
 
+The client pipeline supports qualification and proposal stages, private notes, follow-up dates, lead-to-project conversion, reusable proposal drafting, and verified Resend delivery events through `/api/webhooks/resend` using `RESEND_WEBHOOK_SECRET`.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Application-level owner authentication protects the dashboard and every writable workspace API.
 
 ## Live project intelligence
