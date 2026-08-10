@@ -39,6 +39,8 @@ Reliability tooling includes shared runtime workspace validation, legacy-data no
 
 Captured ideas enter a dedicated inbox for later triage. Inbox items can be promoted to medium-priority tasks, converted into planning projects, or archived, with every decision added to activity history.
 
+Each project card opens a dedicated workspace with its operational brief, momentum, task completion, linked task management, next action, stack, repository metadata, and deployment health.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence
