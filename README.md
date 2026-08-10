@@ -72,6 +72,8 @@ The command palette provides universal search across projects, tasks, inbox capt
 
 The public studio site includes clearly staged case studies for WORK//CTRL, SignForge, and Shop Inventory. Its contact form validates on the server, uses a honeypot and hashed-IP rate limit, and stores inquiries in the Neon `contact_inquiries` table without exposing database credentials to the browser.
 
+The four public service routes are generated from `lib/services.ts`: `/services/manufacturing-software`, `/services/workflow-automation`, `/services/small-business-websites`, and `/services/cnc-signage-systems`. The same typed catalog drives homepage discovery, page copy, project references, planning ranges, FAQs, metadata, structured data, sitemap entries, and service-attributed contact-form preselection.
+
 The homepage and `/about` route use the verified founder profile in `lib/founder.ts`. Person and Organization structured data are rendered on the About page without employer names, credentials, or unverified claims. The approved local founder photograph and its replacement requirements are documented in `docs/FOUNDER_PHOTO.md`; `FounderPortrait` retains a neutral fallback if that asset is ever missing.
 
 Homepage engagement pricing is maintained in `lib/engagements.ts`. The three public planning offers—Workflow Audit, Workflow Sprint, and Custom Operations System—reuse that catalog for display copy, CTA destinations, contact-form preselection, and Workflow Audit lead metadata. The published amounts are planning ranges rather than automatic quotes; update the catalog to revise pricing or included work.
