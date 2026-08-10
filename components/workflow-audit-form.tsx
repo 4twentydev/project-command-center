@@ -5,7 +5,7 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, LoaderCircle, Send } from "lucide-react";
 import { submitWorkflowAudit, type WorkflowAuditState } from "@/app/actions/workflow-audit";
-import { trackConversionEvent } from "@/components/conversion-tracker";
+import { trackConversionEvent, TrackedLink } from "@/components/conversion-tracker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +27,7 @@ function SubmitButton() {
 }
 
 export function WorkflowAuditBookingLink({ href, className }: { href: string; className?: string }) {
-  return <a href={href} target="_blank" rel="noreferrer" onClick={() => trackConversionEvent("workflow_audit_booking_click")} className={className}>Book the review call <ArrowRight className="size-4" /></a>;
+  return <TrackedLink href={href} target="_blank" rel="noreferrer" event="external_booking_link_click" metadata={{ destination: "workflow-audit-booking" }} className={className}>Book the review call <ArrowRight className="size-4" /></TrackedLink>;
 }
 
 export function WorkflowAuditForm({ bookingURL }: { bookingURL: string | null }) {
@@ -40,7 +40,7 @@ export function WorkflowAuditForm({ bookingURL }: { bookingURL: string | null })
   };
 
   if (state.status === "success" || state.status === "duplicate") {
-    return <div role="status" className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-6 sm:p-8"><div className="grid size-11 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="size-5" /></div><div className="mt-5 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400">{state.status === "duplicate" ? "Already received" : "Intake received"}</div><h2 className="mt-2 text-2xl font-semibold tracking-tight">The next step is a direct review.</h2><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">{state.message}</p><div className="mt-6 flex flex-wrap gap-3">{bookingURL ? <WorkflowAuditBookingLink href={bookingURL} className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground" /> : <a href={`mailto:${brand.email}?subject=${encodeURIComponent("Workflow audit follow-up | 4TWENTY.DEV")}`} className="inline-flex h-11 items-center gap-2 rounded-lg border border-border bg-card px-5 text-sm font-medium">Email a follow-up <ArrowRight className="size-4" /></a>}<Link href="/" className="inline-flex h-11 items-center rounded-lg px-4 text-sm text-muted-foreground hover:text-foreground">Return to {brand.name}</Link></div></div>;
+    return <div role="status" className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-6 sm:p-8"><div className="grid size-11 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="size-5" /></div><div className="mt-5 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400">{state.status === "duplicate" ? "Already received" : "Intake received"}</div><h2 className="mt-2 text-2xl font-semibold tracking-tight">The next step is a direct review.</h2><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">{state.message}</p><div className="mt-6 flex flex-wrap gap-3">{bookingURL ? <WorkflowAuditBookingLink href={bookingURL} className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground" /> : <TrackedLink href={`mailto:${brand.email}?subject=${encodeURIComponent("Workflow audit follow-up | 4TWENTY.DEV")}`} event="email_link_click" metadata={{ placement: "workflow-audit-success" }} className="inline-flex h-11 items-center gap-2 rounded-lg border border-border bg-card px-5 text-sm font-medium">Email a follow-up <ArrowRight className="size-4" /></TrackedLink>}<Link href="/" className="inline-flex h-11 items-center rounded-lg px-4 text-sm text-muted-foreground hover:text-foreground">Return to {brand.name}</Link></div></div>;
   }
 
   return <form action={action} onFocusCapture={trackStart} onInvalidCapture={trackInvalid} className="space-y-6" noValidate={false}>

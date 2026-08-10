@@ -1,5 +1,6 @@
 import type { ProjectStatus } from "@/lib/project-status";
 import type { ProjectMedia } from "@/lib/project-media";
+import { brand } from "@/lib/brand";
 
 export type CaseStudy = {
   slug: string;
@@ -102,5 +103,31 @@ export function getAdjacentCaseStudies(slug: string) {
   return {
     previous: caseStudies[(index - 1 + caseStudies.length) % caseStudies.length],
     next: caseStudies[(index + 1) % caseStudies.length],
+  };
+}
+
+export function getCaseStudyStructuredData(study: CaseStudy) {
+  const url = `${brand.siteURL}/work/${study.slug}`;
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CreativeWork",
+        "@id": `${url}#project-profile`,
+        name: study.title,
+        url,
+        description: study.summary,
+        creator: { "@id": `${brand.siteURL}/#organization`, name: brand.name },
+        keywords: [...study.technologies, study.status],
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: brand.siteURL },
+          { "@type": "ListItem", position: 2, name: "Selected work", item: `${brand.siteURL}/#work` },
+          { "@type": "ListItem", position: 3, name: study.title, item: url },
+        ],
+      },
+    ],
   };
 }

@@ -5,7 +5,9 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { brand } from "@/lib/brand";
 import { contactDatabase } from "@/lib/contact-inquiries";
+import { recordConversionEvent } from "@/lib/conversion-analytics";
 import { sendLeadNotification } from "@/lib/lead-notification";
+import { hashedRequestAddress } from "@/lib/request-privacy";
 
 export type ContactState = {
   status: "idle" | "success" | "error";
@@ -42,19 +44,23 @@ export async function submitContact(_: ContactState, formData: FormData): Promis
     const forwarded = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
     const hashSalt = process.env.CONTACT_HASH_SALT ?? process.env.BETTER_AUTH_SECRET ?? "contact";
     const ipHash = createHash("sha256").update(`${hashSalt}:${forwarded}`).digest("hex");
+    const visitorHash = hashedRequestAddress(requestHeaders, "conversion-analytics", true);
     const sql = await contactDatabase();
     const recent = await sql`SELECT COUNT(*)::int AS count FROM contact_inquiries WHERE ip_hash = ${ipHash} AND created_at > NOW() - INTERVAL '1 hour'`;
     if (Number(recent[0]?.count ?? 0) >= 5) return { status: "error", message: "That channel has received several messages recently. Try again later or email directly." };
     const inserted = await sql`INSERT INTO contact_inquiries (name, email, company, project_type, budget, message, ip_hash) VALUES (${name}, ${email}, ${company || null}, ${projectType || null}, ${budget || null}, ${message}, ${ipHash}) RETURNING id`;
     const inquiryId = Number(inserted[0].id);
     after(async () => {
-      try {
-        const notification = await sendLeadNotification({ id: inquiryId, name, email, company, projectType, budget, message });
-        await sql`UPDATE contact_inquiries SET notification_id = ${notification.sent ? notification.id : null}, notification_status = ${notification.sent ? "sent" : "not_configured"}, updated_at = NOW() WHERE id = ${inquiryId}`;
-      } catch (error) {
-        await sql`UPDATE contact_inquiries SET notification_status = 'failed', updated_at = NOW() WHERE id = ${inquiryId}`;
-        console.error("Lead notification failed", error);
-      }
+      const notificationTask = (async () => {
+        try {
+          const notification = await sendLeadNotification({ id: inquiryId, name, email, company, projectType, budget, message });
+          await sql`UPDATE contact_inquiries SET notification_id = ${notification.sent ? notification.id : null}, notification_status = ${notification.sent ? "sent" : "not_configured"}, updated_at = NOW() WHERE id = ${inquiryId}`;
+        } catch (error) {
+          await sql`UPDATE contact_inquiries SET notification_status = 'failed', updated_at = NOW() WHERE id = ${inquiryId}`;
+          console.error("Lead notification failed", error);
+        }
+      })();
+      await Promise.allSettled([notificationTask, recordConversionEvent({ event: "contact_form_submission", path: "/", visitorHash, metadata: projectType ? { projectType } : {} })]);
     });
     return { status: "success", message: "Message received. I’ll review it and get back to you directly." };
   } catch (error) {

@@ -1,3 +1,6 @@
+import { brand } from "@/lib/brand";
+import { publicBusinessDetails } from "@/lib/local-business";
+
 export const founderExperience = [
   "Manufacturing and production management",
   "CNC operation and digital fabrication",
@@ -42,7 +45,14 @@ export const founderStructuredData = {
       email: brand.email,
       description: brand.positioning,
       founder: { "@id": `${brand.siteURL}/about#brandon-york` },
+      ...(publicBusinessDetails.phone ? { telephone: publicBusinessDetails.phone } : {}),
+      ...(publicBusinessDetails.serviceArea ? { areaServed: publicBusinessDetails.serviceArea } : {}),
+      ...(publicBusinessDetails.address ? { address: publicBusinessDetails.address } : {}),
     },
   ],
 } as const;
-import { brand } from "@/lib/brand";
+
+export const organizationStructuredData = {
+  "@context": "https://schema.org",
+  ...founderStructuredData["@graph"].find((item) => item["@type"] === "Organization"),
+} as const;

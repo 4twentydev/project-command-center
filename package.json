@@ -6,7 +6,7 @@
     "type": "git",
     "url": "git+https://github.com/4twentydev/project-command-center.git"
   },
-  "homepage": "https://project-command-center.vercel.app",
+  "homepage": "https://www.4twenty.dev",
   "packageManager": "bun@1.3.14",
   "scripts": {
     "dev": "next dev",

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ServiceDetail } from "@/components/service-detail";
+import { ConversionViewTracker } from "@/components/conversion-tracker";
 import { brand } from "@/lib/brand";
 import { getPublicService, getServiceStructuredData, publicServices } from "@/lib/services";
 
@@ -33,6 +34,7 @@ export default async function ServicePage({ params }: ServicePageProps) {
   const structuredData = getServiceStructuredData(service);
   return <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
+    <ConversionViewTracker event="service_page_view" field="service" value={service.slug} />
     <ServiceDetail service={service} />
   </>;
 }

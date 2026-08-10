@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
+import { TrackedLink } from "@/components/conversion-tracker";
 import { engagementPlanningNote, engagements } from "@/lib/engagements";
 
 export function EngagementPricing() {
@@ -17,7 +18,7 @@ export function EngagementPricing() {
           <p className="mt-5 text-sm leading-6 text-muted-foreground">{engagement.summary}</p>
           <p className="mt-4 border-y border-border py-3 text-xs text-foreground/80">{engagement.timing}</p>
           <ul className="mt-5 flex-1 space-y-3">{engagement.includes.map((item) => <li key={item} className="flex gap-3 text-sm leading-6 text-muted-foreground"><Check className="mt-1.5 size-3.5 shrink-0 text-primary" aria-hidden="true" /><span>{item}</span></li>)}</ul>
-          <Link href={engagement.cta.href} className="mt-8 inline-flex h-11 items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 text-sm font-medium text-primary transition hover:bg-primary/15">{engagement.cta.label}<ArrowRight className="size-4" aria-hidden="true" /></Link>
+          {engagement.cta.href.startsWith("/workflow-audit") ? <TrackedLink href={engagement.cta.href} event="workflow_audit_cta_click" metadata={{ placement: `pricing:${engagement.id}` }} className="mt-8 inline-flex h-11 items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 text-sm font-medium text-primary transition hover:bg-primary/15">{engagement.cta.label}<ArrowRight className="size-4" aria-hidden="true" /></TrackedLink> : <Link href={engagement.cta.href} className="mt-8 inline-flex h-11 items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 text-sm font-medium text-primary transition hover:bg-primary/15">{engagement.cta.label}<ArrowRight className="size-4" aria-hidden="true" /></Link>}
         </article>)}
       </div>
     </div>

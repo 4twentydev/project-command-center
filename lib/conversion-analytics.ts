@@ -1,6 +1,20 @@
 import { contactDatabase } from "@/lib/contact-inquiries";
 
-export const conversionEventNames = ["workflow_audit_view", "workflow_audit_form_start", "workflow_audit_validation_error", "workflow_audit_submission_success", "workflow_audit_booking_click"] as const;
+export const conversionEventNames = [
+  "service_page_view",
+  "case_study_view",
+  "workflow_audit_cta_click",
+  "contact_form_start",
+  "contact_form_submission",
+  "email_link_click",
+  "phone_link_click",
+  "external_booking_link_click",
+  "workflow_audit_view",
+  "workflow_audit_form_start",
+  "workflow_audit_validation_error",
+  "workflow_audit_submission_success",
+  "workflow_audit_booking_click",
+] as const;
 export type ConversionEventName = typeof conversionEventNames[number];
 
 export type ConversionEvent = {

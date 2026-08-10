@@ -14,6 +14,8 @@ bun dev
 
 Open `http://localhost:3000`. The public site lives at `/`, owner login at `/login`, passkey management at `/account`, and the private command center at `/dashboard`. Run `bun run db:migrate` after pulling schema changes, and use `bun run build` to verify the production build.
 
+Copy `.env.example` to `.env.local` for the complete local configuration contract. Search Console, first-party conversion measurement, optional public business details, and post-deployment checks are documented in [`docs/SEO-AND-MEASUREMENT.md`](docs/SEO-AND-MEASUREMENT.md).
+
 ## Authentication
 
 WORK//CTRL uses Better Auth with WebAuthn passkeys. The first visit uses the restricted owner email and a recovery password to create the owner account. Visit `/account` immediately afterward to enroll Windows Hello, then add a phone or password-manager passkey as backup.
@@ -104,7 +106,7 @@ ANALYTICS_HASH_SALT=<random secret>
 
 No payment processing is included because the project has no supported payment architecture. The page clearly states that fit, scope, fee, and timing are confirmed directly before booking. If `WORKFLOW_AUDIT_BOOKING_URL` is absent or invalid, the confirmation state falls back to direct email follow-up.
 
-Tracked conversion events are: landing-page view, form start, validation error (field name only), successful server submission, and configured booking-link click. They are written to Neon and are not sent to Google Analytics, Meta, or another external analytics service.
+Tracked conversion events cover service and case-study views, Workflow Audit CTA clicks, both form funnels, successful server submissions, email and optional phone links, and external booking links. They are written to Neon and are not sent to Google Analytics, Meta, or another external analytics service. The full event list and privacy contract are documented in `docs/SEO-AND-MEASUREMENT.md`.
 
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Application-level owner authentication protects the dashboard and every writable workspace API.
 

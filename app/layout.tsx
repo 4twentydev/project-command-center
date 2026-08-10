@@ -22,6 +22,7 @@ export const metadata: Metadata = {
   category: "Industrial software and workflow automation",
   appleWebApp: { capable: true, title: brand.name, statusBarStyle: "black-translucent" },
   formatDetection: { telephone: false },
+  ...(process.env.GOOGLE_SITE_VERIFICATION?.trim() ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION.trim() } } : {}),
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CaseStudyDetail } from "@/components/case-study-detail";
+import { ConversionViewTracker } from "@/components/conversion-tracker";
 import { brand } from "@/lib/brand";
-import { caseStudies, getAdjacentCaseStudies, getCaseStudy } from "@/lib/case-studies";
+import { caseStudies, getAdjacentCaseStudies, getCaseStudy, getCaseStudyStructuredData } from "@/lib/case-studies";
 
 type CaseStudyPageProps = { params: Promise<{ slug: string }> };
 
@@ -33,5 +34,6 @@ export default async function CaseStudyPage({ params }: CaseStudyPageProps) {
   if (!study) notFound();
   const { previous, next } = getAdjacentCaseStudies(slug);
   if (!previous || !next) notFound();
-  return <CaseStudyDetail study={study} previous={previous} next={next} />;
+  const structuredData = getCaseStudyStructuredData(study);
+  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} /><ConversionViewTracker event="case_study_view" field="caseStudy" value={study.slug} /><CaseStudyDetail study={study} previous={previous} next={next} /></>;
 }
