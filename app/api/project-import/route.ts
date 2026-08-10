@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireOwner } from "@/lib/owner-session";
 
 type GitHubRepo = { name: string; html_url: string; homepage?: string | null; description: string | null; private: boolean; language: string | null; topics?: string[]; pushed_at: string };
 type VercelProject = { name: string; targets?: { production?: { alias?: string[]; url?: string } }; latestDeployments?: Array<{ url?: string; target?: string }> };
 
-export async function GET() {
+export async function GET(request: Request) {
+  const unauthorized = await requireOwner(request.headers);
+  if (unauthorized) return unauthorized;
   const githubHeaders: HeadersInit = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
   if (process.env.GITHUB_TOKEN) githubHeaders.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   const githubEndpoint = process.env.GITHUB_TOKEN ? "https://api.github.com/user/repos?per_page=100&sort=pushed&affiliation=owner" : "https://api.github.com/users/4twentydev/repos?per_page=100&sort=pushed&type=owner";

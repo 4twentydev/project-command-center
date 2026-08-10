@@ -1,8 +1,11 @@
 import { neon } from "@neondatabase/serverless";
 import { NextResponse } from "next/server";
 import { sendPush, type StoredPushSubscription } from "@/lib/push";
+import { requireOwner } from "@/lib/owner-session";
 
 export async function POST(request: Request) {
+  const unauthorized = await requireOwner(request.headers);
+  if (unauthorized) return unauthorized;
   try {
     if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not configured");
     const { endpoint } = await request.json() as { endpoint?: string };

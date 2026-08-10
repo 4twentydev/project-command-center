@@ -1,6 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import { NextResponse } from "next/server";
 import { isWorkspaceData } from "@/lib/workspace-validation";
+import { requireOwner } from "@/lib/owner-session";
 
 export const runtime = "nodejs";
 const workspaceId = "primary";
@@ -31,7 +32,9 @@ async function ensureSchema() {
   return sql;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const unauthorized = await requireOwner(request.headers);
+  if (unauthorized) return unauthorized;
   try {
     const sql = await ensureSchema();
     const rows = await sql`SELECT data, updated_at FROM workspaces WHERE id = ${workspaceId} LIMIT 1`;
@@ -44,7 +47,9 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const unauthorized = await requireOwner(request.headers);
+  if (unauthorized) return unauthorized;
   try {
     const sql = await ensureSchema();
     const rows = await sql`
@@ -61,6 +66,8 @@ export async function POST() {
 }
 
 export async function PUT(request: Request) {
+  const unauthorized = await requireOwner(request.headers);
+  if (unauthorized) return unauthorized;
   try {
     const workspace = await request.json();
     if (!isWorkspaceData(workspace)) return NextResponse.json({ error: "Invalid workspace data" }, { status: 400 });

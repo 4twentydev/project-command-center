@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   let sent = 0;
   await Promise.all(subscriptionRows.map(async (row) => {
     try {
-      await sendPush(row.subscription as StoredPushSubscription, { title: overdue ? `${overdue} overdue · ${due.length} due` : `${due.length} task${due.length === 1 ? "" : "s"} due today`, body: preview, url: "/#tasks" });
+      await sendPush(row.subscription as StoredPushSubscription, { title: overdue ? `${overdue} overdue · ${due.length} due` : `${due.length} task${due.length === 1 ? "" : "s"} due today`, body: preview, url: "/dashboard#tasks" });
       sent += 1;
     } catch (error) {
       const statusCode = (error as { statusCode?: number }).statusCode;

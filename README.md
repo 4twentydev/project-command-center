@@ -1,6 +1,6 @@
-# WORK//CTRL — Project Command Center
+# 4TWENTY.DEV + WORK//CTRL
 
-A dark-first home base for software, CNC, business, and experimental projects. Built with Next.js App Router, TypeScript, Tailwind CSS v4, shadcn/ui conventions, Bun, and Vercel.
+A dark-first public studio site and private home base for software, CNC, business, and experimental projects. Built with Next.js App Router, TypeScript, Tailwind CSS v4, shadcn/ui conventions, Bun, Neon, Better Auth passkeys, and Vercel.
 
 ## Start locally
 
@@ -11,7 +11,23 @@ bun install
 bun dev
 ```
 
-Open `http://localhost:3000`. Use `bun run build` to verify the production build.
+Open `http://localhost:3000`. The public site lives at `/`, owner login at `/login`, passkey management at `/account`, and the private command center at `/dashboard`. Use `bun run build` to verify the production build.
+
+## Authentication
+
+WORK//CTRL uses Better Auth with WebAuthn passkeys. The first visit uses the restricted owner email and a recovery password to create the owner account. Visit `/account` immediately afterward to enroll Windows Hello, then add a phone or password-manager passkey as backup.
+
+Required environment variables:
+
+```env
+DATABASE_URL=postgresql://...
+BETTER_AUTH_SECRET=<at least 32 random characters>
+BETTER_AUTH_URL=http://localhost:3000
+OWNER_EMAIL=you@example.com
+PASSKEY_RP_ID=localhost
+```
+
+For production, set `BETTER_AUTH_URL=https://4twenty.dev` and `PASSKEY_RP_ID=4twenty.dev`. Passkeys are domain-bound, so enroll the permanent production passkeys only after `4twenty.dev` is connected and serving HTTPS. All workspace, project-intelligence, import, and push-management APIs require the authenticated owner session; the reminder cron retains its separate bearer-secret protection.
 
 ## Edit projects
 
@@ -53,7 +69,7 @@ The project journal preserves cloud-synced updates, decisions, blockers, and not
 
 The command palette provides universal search across projects, tasks, inbox captures, journal entries, and weekly reviews, opening editors or navigating directly to the relevant workspace section.
 
-The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
+The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Application-level owner authentication protects the dashboard and every writable workspace API.
 
 ## Live project intelligence
 

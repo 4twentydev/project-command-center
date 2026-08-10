@@ -1,6 +1,7 @@
 import { neon } from "@neondatabase/serverless";
 import { NextResponse } from "next/server";
 import type { StoredPushSubscription } from "@/lib/push";
+import { requireOwner } from "@/lib/owner-session";
 
 function sqlClient() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not configured");
@@ -20,6 +21,8 @@ function validSubscription(value: unknown): value is StoredPushSubscription {
 }
 
 export async function POST(request: Request) {
+  const unauthorized = await requireOwner(request.headers);
+  if (unauthorized) return unauthorized;
   try {
     const subscription: unknown = await request.json();
     if (!validSubscription(subscription)) return NextResponse.json({ error: "Invalid subscription" }, { status: 400 });
@@ -34,6 +37,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const unauthorized = await requireOwner(request.headers);
+  if (unauthorized) return unauthorized;
   try {
     const body = await request.json() as { endpoint?: string };
     if (!body.endpoint) return NextResponse.json({ error: "Endpoint is required" }, { status: 400 });

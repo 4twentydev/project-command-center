@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireOwner } from "@/lib/owner-session";
 
 export const runtime = "nodejs";
 
@@ -70,6 +71,8 @@ async function vercelStatus(deploymentUrl: string) {
 }
 
 export async function GET(request: NextRequest) {
+  const unauthorized = await requireOwner(request.headers);
+  if (unauthorized) return unauthorized;
   const repo = request.nextUrl.searchParams.get("repo");
   const deployment = request.nextUrl.searchParams.get("deployment");
   if (!repo && !deployment) return NextResponse.json({ error: "A repository or deployment URL is required" }, { status: 400 });
