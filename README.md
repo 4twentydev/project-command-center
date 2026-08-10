@@ -43,6 +43,8 @@ Each project card opens a dedicated workspace with its operational brief, moment
 
 Connected project discovery imports selected GitHub repositories, matches same-name Vercel deployments, skips already tracked repositories, and creates editable WORK//CTRL project cards. Open it from the command palette.
 
+Cloud-synced workspace settings store display identity, timezone-aware reminders, GitHub and Vercel account identity, stalled-project sensitivity, and the default priority for newly created tasks.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence

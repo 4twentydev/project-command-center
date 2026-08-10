@@ -33,13 +33,32 @@ export type InboxItem = {
   createdAt: string;
 };
 
+export type WorkspaceSettings = {
+  displayName: string;
+  timezone: string;
+  githubUsername: string;
+  vercelTeam: string;
+  staleProjectDays: number;
+  defaultTaskPriority: "Low" | "Medium" | "High";
+};
+
+export const defaultWorkspaceSettings: WorkspaceSettings = {
+  displayName: "4twen",
+  timezone: "America/Denver",
+  githubUsername: "4twentydev",
+  vercelTeam: "4twentydev",
+  staleProjectDays: 14,
+  defaultTaskPriority: "Medium",
+};
+
 export type Workspace = {
   projects: Project[];
   tasks: Task[];
   activity: ActivityItem[];
   reviews?: WeeklyReview[];
   inbox?: InboxItem[];
+  settings?: WorkspaceSettings;
 };
 
-export const emptyWorkspace: Workspace = { projects: [], tasks: [], activity: [], reviews: [], inbox: [] };
+export const emptyWorkspace: Workspace = { projects: [], tasks: [], activity: [], reviews: [], inbox: [], settings: defaultWorkspaceSettings };
 export const workspaceStorageKey = "work-ctrl-workspace-v1";

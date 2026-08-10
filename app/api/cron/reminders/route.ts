@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   ]);
   if (!workspaceRows.length || !subscriptionRows.length) return Response.json({ ok: true, sent: 0, tasks: 0 });
   const workspace = workspaceRows[0].data as Workspace;
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: workspace.settings?.timezone ?? "America/Denver", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const due = workspace.tasks.filter((task) => !task.done && task.dueDate && task.dueDate <= today);
   if (!due.length) return Response.json({ ok: true, sent: 0, tasks: 0 });
   const overdue = due.filter((task) => task.dueDate && task.dueDate < today).length;

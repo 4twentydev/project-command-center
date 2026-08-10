@@ -1,4 +1,4 @@
-import type { Workspace } from "@/lib/workspace";
+import { defaultWorkspaceSettings, type Workspace } from "@/lib/workspace";
 
 export function isWorkspaceData(value: unknown): value is Workspace {
   if (!value || typeof value !== "object") return false;
@@ -13,5 +13,6 @@ export function normalizeWorkspace(value: Workspace): Workspace {
     activity: value.activity,
     reviews: value.reviews ?? [],
     inbox: value.inbox ?? [],
+    settings: { ...defaultWorkspaceSettings, ...value.settings },
   };
 }
