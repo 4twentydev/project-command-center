@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, AlertCircle, ArrowUpRight, CalendarDays, CheckCircle2, CircleDot, Clock3, Cloud, Command, DatabaseBackup, Download, ExternalLink, Flame,
+  Activity, AlertCircle, ArrowUpRight, Bell, BellOff, CalendarDays, CheckCircle2, CircleDot, Clock3, Cloud, Command, DatabaseBackup, Download, ExternalLink, Flame,
   CornerDownLeft, GitCommitHorizontal, Github, Grid2X2, Keyboard, LayoutDashboard, Lightbulb, ListChecks, ListFilter, Pencil,
-  BookOpenCheck, Gauge, Plus, RefreshCw, Rocket, RotateCcw, Search, Sparkles, Square, Target, TerminalSquare, Trash2, Upload, X,
+  BookOpenCheck, Gauge, Plus, RefreshCw, Rocket, RotateCcw, Search, Send, Sparkles, Square, Target, TerminalSquare, Trash2, Upload, X,
 } from "lucide-react";
 import type { Project, ProjectKind, ProjectStatus } from "@/lib/projects";
 import { emptyWorkspace, workspaceStorageKey, type Task, type WeeklyReview, type Workspace } from "@/lib/workspace";
@@ -56,6 +56,64 @@ function WeeklyReviewDialog({ onClose, onSave }: { onClose: () => void; onSave: 
   const [nextPriorities, setNextPriorities] = useState("");
   const fieldClass = "mt-2 min-h-24 w-full resize-none rounded-md border border-border bg-background p-3 text-sm outline-none focus:border-primary/50";
   return <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-background/80 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><Card className="my-6 w-full max-w-2xl shadow-2xl"><CardContent className="p-6"><div className="mb-6 flex items-center justify-between"><div><div className="font-mono text-[9px] uppercase tracking-[0.22em] text-primary">Operating rhythm</div><h2 className="mt-1 text-xl font-semibold">Weekly review</h2><p className="mt-1 text-xs text-muted-foreground">Close the loop, clear the noise, choose the next moves.</p></div><Button variant="ghost" size="icon" onClick={onClose}><X /></Button></div><form className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (![wins, blockers, lessons, nextPriorities].some((value) => value.trim())) return; onSave({ id: crypto.randomUUID(), wins: wins.trim(), blockers: blockers.trim(), lessons: lessons.trim(), nextPriorities: nextPriorities.trim(), createdAt: new Date().toISOString() }); onClose(); }}><div className="grid gap-4 sm:grid-cols-2"><label className="text-xs font-medium">Wins<textarea value={wins} onChange={(event) => setWins(event.target.value)} className={fieldClass} placeholder="What moved forward?" /></label><label className="text-xs font-medium">Blockers<textarea value={blockers} onChange={(event) => setBlockers(event.target.value)} className={fieldClass} placeholder="What created drag?" /></label><label className="text-xs font-medium">Lessons<textarea value={lessons} onChange={(event) => setLessons(event.target.value)} className={fieldClass} placeholder="What did you learn?" /></label><label className="text-xs font-medium">Next-week priorities<textarea value={nextPriorities} onChange={(event) => setNextPriorities(event.target.value)} className={fieldClass} placeholder="What must matter next?" /></label></div><div className="flex justify-end gap-2 pt-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit"><BookOpenCheck />Complete review</Button></div></form></CardContent></Card></div>;
+}
+
+function decodeApplicationKey(value: string) {
+  const padding = "=".repeat((4 - value.length % 4) % 4);
+  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(window.atob(base64), (character) => character.charCodeAt(0));
+}
+
+function NotificationManager() {
+  const [supported, setSupported] = useState(true);
+  const [subscription, setSubscription] = useState<PushSubscription | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function inspect() {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) { setSupported(false); return; }
+      const registration = await navigator.serviceWorker.ready;
+      setSubscription(await registration.pushManager.getSubscription());
+    }
+    void inspect();
+  }, []);
+
+  async function enable() {
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!publicKey) { setMessage("Public notification key is missing."); return; }
+    setBusy(true); setMessage(null);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") { setMessage("Notification permission was not granted."); return; }
+      const registration = await navigator.serviceWorker.ready;
+      const nextSubscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: decodeApplicationKey(publicKey) });
+      const response = await fetch("/api/push/subscription", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(nextSubscription) });
+      if (!response.ok) throw new Error();
+      setSubscription(nextSubscription); setMessage("Daily reminders enabled.");
+    } catch { setMessage("Could not enable reminders on this device."); }
+    finally { setBusy(false); }
+  }
+
+  async function disable() {
+    if (!subscription) return;
+    setBusy(true); setMessage(null);
+    try {
+      await fetch("/api/push/subscription", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: subscription.endpoint }) });
+      await subscription.unsubscribe(); setSubscription(null); setMessage("Reminders disabled on this device.");
+    } catch { setMessage("Could not disable reminders."); }
+    finally { setBusy(false); }
+  }
+
+  async function test() {
+    if (!subscription) return;
+    setBusy(true); setMessage(null);
+    try { const response = await fetch("/api/push/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: subscription.endpoint }) }); if (!response.ok) throw new Error(); setMessage("Test notification sent."); }
+    catch { setMessage("Test notification failed."); }
+    finally { setBusy(false); }
+  }
+
+  return <Card><CardContent className="p-5"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><div className="mb-2 flex items-center gap-2">{subscription ? <Bell className="size-4 text-primary" /> : <BellOff className="size-4 text-muted-foreground" />}<h2 className="text-sm font-semibold">Daily reminders</h2></div><p className="text-xs text-muted-foreground">Due-today and overdue tasks · Denver morning · This device</p>{message && <p className="mt-2 text-xs text-primary">{message}</p>}</div><div className="flex gap-2">{!supported ? <Badge className="border-border bg-secondary text-muted-foreground">Not supported</Badge> : subscription ? <><Button variant="outline" onClick={() => void test()} disabled={busy}><Send />Test</Button><Button variant="outline" onClick={() => void disable()} disabled={busy}><BellOff />Disable</Button></> : <Button onClick={() => void enable()} disabled={busy}><Bell />Enable reminders</Button>}</div></div></CardContent></Card>;
 }
 
 function ProjectEditor({ project, onClose, onSave }: { project: Project; onClose: () => void; onSave: (project: Project) => void }) {
@@ -403,6 +461,7 @@ export function Dashboard() {
 
           <section id="activity" className="mt-4"><Card><CardContent className="p-5"><div className="mb-5"><h2 className="text-sm font-semibold">Activity</h2><p className="mt-1 text-xs text-muted-foreground">An automatic trail of meaningful workspace changes.</p></div>{workspace.activity.length ? <div className="space-y-1">{workspace.activity.map((item, index) => <div key={item.id} className="flex items-center gap-3 rounded-lg px-2 py-3 hover:bg-accent/50"><div className={cn("size-2 rounded-full", index === 0 ? "bg-emerald-400" : "bg-muted-foreground/40")} /><span className="min-w-0 flex-1 truncate text-xs">{item.message}</span><span className="shrink-0 font-mono text-[9px] text-muted-foreground">{new Date(item.createdAt).toLocaleDateString()}</span></div>)}</div> : <div className="grid min-h-28 place-items-center text-xs text-muted-foreground">Activity appears as you work.</div>}</CardContent></Card></section>
           <section className="mt-4"><Card><CardContent className="p-5"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div><div className="mb-2 flex items-center gap-2"><BookOpenCheck className="size-4 text-primary" /><h2 className="text-sm font-semibold">Weekly review</h2></div>{workspace.reviews?.[0] ? <div><p className="text-xs text-muted-foreground">Last completed {new Date(workspace.reviews[0].createdAt).toLocaleDateString(undefined, { month: "long", day: "numeric" })}</p><p className="mt-3 max-w-3xl whitespace-pre-line text-sm leading-6"><span className="font-medium">Next:</span> {workspace.reviews[0].nextPriorities || "No priorities recorded."}</p></div> : <p className="text-xs text-muted-foreground">No review yet. Close your first operating loop.</p>}</div><Button variant="outline" onClick={() => setReviewOpen(true)}><BookOpenCheck />{workspace.reviews?.length ? "New review" : "Start review"}</Button></div></CardContent></Card></section>
+          <section className="mt-4"><NotificationManager /></section>
           <section className="mt-4"><Card><CardContent className="p-5"><div className="mb-5"><h2 className="text-sm font-semibold">Data safety</h2><p className="mt-1 text-xs text-muted-foreground">Portable backups and recoverable workspace controls.</p></div><input ref={importInputRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importWorkspace(file); }} /><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"><Button variant="outline" className="justify-start" onClick={exportWorkspace}><Download />Export JSON</Button><Button variant="outline" className="justify-start" onClick={() => importInputRef.current?.click()}><Upload />Import backup</Button><Button variant="outline" className="justify-start" onClick={() => void createSnapshot()} disabled={snapshotting}><DatabaseBackup className={cn(snapshotting && "animate-pulse")} />Cloud snapshot</Button><Button variant="outline" className="justify-start text-red-500 hover:text-red-500" onClick={resetWorkspace}><RotateCcw />Reset workspace</Button></div><div className="mt-3 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{lastSnapshotAt ? `Last cloud snapshot · ${new Date(lastSnapshotAt).toLocaleString()}` : "No cloud snapshot yet"}</div></CardContent></Card></section>
         </main>
         <nav className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 grid grid-cols-5 rounded-2xl border border-border bg-card/95 p-1.5 shadow-2xl backdrop-blur-xl lg:hidden"><button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex flex-col items-center gap-1 rounded-xl py-2 text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"><LayoutDashboard className="size-4" />Home</button><button onClick={() => document.querySelector("#focus")?.scrollIntoView()} className="flex flex-col items-center gap-1 rounded-xl py-2 text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"><Target className="size-4" />Focus</button><button onClick={() => setComposer("task")} className="mx-auto grid size-11 -translate-y-3 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg" aria-label="New task"><Plus className="size-5" /></button><button onClick={() => document.querySelector("#projects")?.scrollIntoView()} className="flex flex-col items-center gap-1 rounded-xl py-2 text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"><Grid2X2 className="size-4" />Projects</button><button onClick={() => setCommandOpen(true)} className="flex flex-col items-center gap-1 rounded-xl py-2 text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"><Command className="size-4" />More</button></nav>

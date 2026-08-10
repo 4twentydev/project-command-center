@@ -31,6 +31,8 @@ WORK//CTRL includes an App Router web manifest, generated application icon, prod
 
 Weekly reviews capture wins, blockers, lessons, and next priorities; retain up to 52 reviews in the cloud workspace; log completion activity; and automatically create a Neon snapshot.
 
+Daily browser push reminders are stored per device in Neon and sent by a secured Vercel Cron job at `14:00 UTC` (approximately 7–8 AM Denver time depending on daylight saving). Configure `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, and `CRON_SECRET` in Vercel.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence

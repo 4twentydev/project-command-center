@@ -16,3 +16,26 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(fetch(request).then((response) => { const copy = response.clone(); void caches.open(CACHE_NAME).then((cache) => cache.put("/", copy)); return response; }).catch(() => caches.match("/")));
   }
 });
+
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  const data = event.data.json();
+  event.waitUntil(self.registration.showNotification(data.title || "WORK//CTRL", {
+    body: data.body,
+    icon: data.icon || "/icon",
+    badge: data.badge || "/icon",
+    tag: "work-ctrl-daily-reminder",
+    renotify: true,
+    data: { url: data.url || "/#tasks" },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/#tasks";
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+    const existing = clients[0];
+    if (existing) { existing.navigate(url); return existing.focus(); }
+    return self.clients.openWindow(url);
+  }));
+});
