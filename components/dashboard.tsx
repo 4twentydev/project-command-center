@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, AlertCircle, ArrowUpRight, CalendarDays, CheckCircle2, CircleDot, Clock3, Cloud, Command, ExternalLink,
+  Activity, AlertCircle, ArrowUpRight, CalendarDays, CheckCircle2, CircleDot, Clock3, Cloud, Command, DatabaseBackup, Download, ExternalLink,
   GitCommitHorizontal, Github, Grid2X2, LayoutDashboard, Lightbulb, ListChecks, ListFilter, Pencil,
-  Plus, RefreshCw, Rocket, Search, Sparkles, Square, TerminalSquare, Trash2, X,
+  Plus, RefreshCw, Rocket, RotateCcw, Search, Sparkles, Square, TerminalSquare, Trash2, Upload, X,
 } from "lucide-react";
 import type { Project, ProjectKind, ProjectStatus } from "@/lib/projects";
 import { emptyWorkspace, workspaceStorageKey, type Task, type Workspace } from "@/lib/workspace";
@@ -31,11 +31,23 @@ const accentStyles = {
 type ComposerMode = "project" | "task" | "idea" | null;
 type SyncState = "loading" | "saved" | "saving" | "offline";
 type TaskView = "Today" | "Next" | "All";
+type Confirmation = { title: string; message: string; actionLabel: string; onConfirm: () => void };
+type UndoState = { label: string; workspace: Workspace };
+
+function isWorkspaceData(value: unknown): value is Workspace {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<Workspace>;
+  return Array.isArray(candidate.projects) && Array.isArray(candidate.tasks) && Array.isArray(candidate.activity);
+}
 type ProjectIntelligence = {
   github: null | { available: boolean; private?: boolean; defaultBranch?: string; openIssues?: number; pushedAt?: string; latestCommit?: null | { sha: string; message: string; url: string; date?: string } };
   vercel: null | { reachable: boolean; state: string | null; target?: string | null; createdAt?: number; url: string; checkedAt: string };
   fetchedAt: string;
 };
+
+function ConfirmDialog({ confirmation, onClose }: { confirmation: Confirmation; onClose: () => void }) {
+  return <div className="fixed inset-0 z-[60] grid place-items-center bg-background/80 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><Card className="w-full max-w-md shadow-2xl"><CardContent className="p-6"><div className="mb-4 grid size-10 place-items-center rounded-full bg-red-500/10 text-red-500"><AlertCircle /></div><h2 className="text-lg font-semibold">{confirmation.title}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{confirmation.message}</p><div className="mt-6 flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancel</Button><Button className="bg-red-600 text-white shadow-none hover:bg-red-700" onClick={() => { confirmation.onConfirm(); onClose(); }}><Trash2 />{confirmation.actionLabel}</Button></div></CardContent></Card></div>;
+}
 
 function ProjectEditor({ project, onClose, onSave }: { project: Project; onClose: () => void; onSave: (project: Project) => void }) {
   const [draft, setDraft] = useState(project);
@@ -165,6 +177,11 @@ export function Dashboard() {
   const [syncState, setSyncState] = useState<SyncState>("loading");
   const [intelligence, setIntelligence] = useState<Record<string, ProjectIntelligence>>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [undo, setUndo] = useState<UndoState | null>(null);
+  const [lastSnapshotAt, setLastSnapshotAt] = useState<string | null>(null);
+  const [snapshotting, setSnapshotting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,7 +191,7 @@ export function Dashboard() {
       try {
         const response = await fetch("/api/workspace", { cache: "no-store" });
         if (!response.ok) throw new Error("Cloud read failed");
-        const payload = await response.json() as { workspace: Workspace | null };
+        const payload = await response.json() as { workspace: Workspace | null; lastSnapshotAt?: string | null };
         if (cancelled) return;
         if (payload.workspace) {
           setWorkspace(payload.workspace);
@@ -185,6 +202,7 @@ export function Dashboard() {
             await fetch("/api/workspace", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(localWorkspace) });
           }
         }
+        setLastSnapshotAt(payload.lastSnapshotAt ?? null);
         setSyncState("saved");
       } catch {
         if (cancelled) return;
@@ -235,6 +253,12 @@ export function Dashboard() {
     return () => window.clearTimeout(timer);
   }, [ready, intelligenceKey, refreshIntelligence]);
 
+  useEffect(() => {
+    if (!undo) return;
+    const timer = window.setTimeout(() => setUndo(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [undo]);
+
   function record(message: string) {
     return { id: crypto.randomUUID(), message, createdAt: new Date().toISOString() };
   }
@@ -242,10 +266,36 @@ export function Dashboard() {
   function addTask(title: string, projectId?: string, priority: Task["priority"] = "Medium", dueDate?: string) { setWorkspace((current) => ({ ...current, tasks: [{ id: crypto.randomUUID(), title, projectId, priority, dueDate, done: false, createdAt: new Date().toISOString() }, ...current.tasks], activity: [record(`Added task · ${title}`), ...current.activity].slice(0, 30) })); }
   function addIdea(idea: string) { addTask(`Idea: ${idea}`); setWorkspace((current) => ({ ...current, activity: [record(`Captured idea · ${idea}`), ...current.activity].slice(0, 30) })); }
   function toggleTask(id: string) { setWorkspace((current) => { const task = current.tasks.find((item) => item.id === id); return { ...current, tasks: current.tasks.map((item) => item.id === id ? { ...item, done: !item.done } : item), activity: task ? [record(`${task.done ? "Reopened" : "Completed"} task · ${task.title}`), ...current.activity].slice(0, 30) : current.activity }; }); }
-  function deleteProject(id: string) { setWorkspace((current) => { const project = current.projects.find((item) => item.id === id); return { ...current, projects: current.projects.filter((item) => item.id !== id), tasks: current.tasks.map((task) => task.projectId === id ? { ...task, projectId: undefined } : task), activity: project ? [record(`Removed project · ${project.name}`), ...current.activity].slice(0, 30) : current.activity }; }); }
+  function deleteProject(id: string) { const project = workspace.projects.find((item) => item.id === id); if (!project) return; setConfirmation({ title: `Delete ${project.name}?`, message: "The project will be removed and its tasks moved to General. You can undo this briefly afterward.", actionLabel: "Delete project", onConfirm: () => { setUndo({ label: `Deleted ${project.name}`, workspace }); setWorkspace((current) => ({ ...current, projects: current.projects.filter((item) => item.id !== id), tasks: current.tasks.map((task) => task.projectId === id ? { ...task, projectId: undefined } : task), activity: [record(`Removed project · ${project.name}`), ...current.activity].slice(0, 30) })); } }); }
   function updateProject(project: Project) { setWorkspace((current) => ({ ...current, projects: current.projects.map((item) => item.id === project.id ? project : item), activity: [record(`Updated project · ${project.name}`), ...current.activity].slice(0, 30) })); }
   function updateTask(task: Task) { setWorkspace((current) => ({ ...current, tasks: current.tasks.map((item) => item.id === task.id ? task : item), activity: [record(`Updated task · ${task.title}`), ...current.activity].slice(0, 30) })); }
-  function deleteTask(id: string) { setWorkspace((current) => { const task = current.tasks.find((item) => item.id === id); return { ...current, tasks: current.tasks.filter((item) => item.id !== id), activity: task ? [record(`Removed task · ${task.title}`), ...current.activity].slice(0, 30) : current.activity }; }); }
+  function deleteTask(id: string) { const task = workspace.tasks.find((item) => item.id === id); if (!task) return; setConfirmation({ title: "Delete this task?", message: `“${task.title}” will be removed. You can undo this briefly afterward.`, actionLabel: "Delete task", onConfirm: () => { setUndo({ label: `Deleted ${task.title}`, workspace }); setWorkspace((current) => ({ ...current, tasks: current.tasks.filter((item) => item.id !== id), activity: [record(`Removed task · ${task.title}`), ...current.activity].slice(0, 30) })); } }); }
+
+  function exportWorkspace() {
+    const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), workspace }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url; anchor.download = `work-ctrl-backup-${new Date().toISOString().slice(0, 10)}.json`; anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importWorkspace(file: File) {
+    try {
+      const parsed: unknown = JSON.parse(await file.text());
+      const incoming: unknown = parsed && typeof parsed === "object" && "workspace" in parsed ? (parsed as { workspace?: unknown }).workspace : parsed;
+      if (!isWorkspaceData(incoming)) throw new Error("Invalid backup");
+      setConfirmation({ title: "Restore this backup?", message: "The current workspace will be replaced by the imported projects, tasks, and activity. You can undo this briefly afterward.", actionLabel: "Restore backup", onConfirm: () => { setUndo({ label: "Restored backup", workspace }); setWorkspace(incoming); } });
+    } catch { setConfirmation({ title: "Backup not recognized", message: "Choose a JSON backup exported from WORK//CTRL.", actionLabel: "Close", onConfirm: () => undefined }); }
+    if (importInputRef.current) importInputRef.current.value = "";
+  }
+
+  async function createSnapshot() {
+    setSnapshotting(true);
+    try { const response = await fetch("/api/workspace", { method: "POST" }); const payload = await response.json() as { createdAt?: string }; if (!response.ok || !payload.createdAt) throw new Error(); setLastSnapshotAt(payload.createdAt); }
+    finally { setSnapshotting(false); }
+  }
+
+  function resetWorkspace() { setConfirmation({ title: "Reset the entire workspace?", message: "All projects, tasks, ideas, and activity will be cleared. Export a backup or create a snapshot first. You can undo this briefly afterward.", actionLabel: "Reset workspace", onConfirm: () => { setUndo({ label: "Reset workspace", workspace }); setWorkspace(emptyWorkspace); } }); }
 
   const filtered = useMemo(() => workspace.projects.filter((project) => (kind === "All" || project.kind === kind) && `${project.name} ${project.description} ${project.stack.join(" ")}`.toLowerCase().includes(query.toLowerCase())), [kind, query, workspace.projects]);
   const openTasks = workspace.tasks.filter((task) => !task.done).length;
@@ -263,6 +313,8 @@ export function Dashboard() {
       {composer && <Composer mode={composer} projects={workspace.projects} onClose={() => setComposer(null)} onProject={addProject} onTask={addTask} onIdea={addIdea} />}
       {editingProject && <ProjectEditor project={editingProject} onClose={() => setEditingProject(null)} onSave={updateProject} />}
       {editingTask && <TaskEditor task={editingTask} projects={workspace.projects} onClose={() => setEditingTask(null)} onSave={updateTask} />}
+      {confirmation && <ConfirmDialog confirmation={confirmation} onClose={() => setConfirmation(null)} />}
+      {undo && <div className="fixed bottom-5 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 text-xs shadow-2xl"><span>{undo.label}</span><Button size="sm" variant="ghost" className="text-primary" onClick={() => { setWorkspace(undo.workspace); setUndo(null); }}>Undo</Button><button onClick={() => setUndo(null)} aria-label="Dismiss"><X className="size-3.5 text-muted-foreground" /></button></div>}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_75%_-10%,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_32%)]" />
       <div className="relative mx-auto flex min-h-screen max-w-[1600px]">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/70 bg-card/30 p-4 backdrop-blur lg:flex">
@@ -286,6 +338,7 @@ export function Dashboard() {
           </section>
 
           <section id="activity" className="mt-4"><Card><CardContent className="p-5"><div className="mb-5"><h2 className="text-sm font-semibold">Activity</h2><p className="mt-1 text-xs text-muted-foreground">An automatic trail of meaningful workspace changes.</p></div>{workspace.activity.length ? <div className="space-y-1">{workspace.activity.map((item, index) => <div key={item.id} className="flex items-center gap-3 rounded-lg px-2 py-3 hover:bg-accent/50"><div className={cn("size-2 rounded-full", index === 0 ? "bg-emerald-400" : "bg-muted-foreground/40")} /><span className="min-w-0 flex-1 truncate text-xs">{item.message}</span><span className="shrink-0 font-mono text-[9px] text-muted-foreground">{new Date(item.createdAt).toLocaleDateString()}</span></div>)}</div> : <div className="grid min-h-28 place-items-center text-xs text-muted-foreground">Activity appears as you work.</div>}</CardContent></Card></section>
+          <section className="mt-4"><Card><CardContent className="p-5"><div className="mb-5"><h2 className="text-sm font-semibold">Data safety</h2><p className="mt-1 text-xs text-muted-foreground">Portable backups and recoverable workspace controls.</p></div><input ref={importInputRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importWorkspace(file); }} /><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"><Button variant="outline" className="justify-start" onClick={exportWorkspace}><Download />Export JSON</Button><Button variant="outline" className="justify-start" onClick={() => importInputRef.current?.click()}><Upload />Import backup</Button><Button variant="outline" className="justify-start" onClick={() => void createSnapshot()} disabled={snapshotting}><DatabaseBackup className={cn(snapshotting && "animate-pulse")} />Cloud snapshot</Button><Button variant="outline" className="justify-start text-red-500 hover:text-red-500" onClick={resetWorkspace}><RotateCcw />Reset workspace</Button></div><div className="mt-3 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{lastSnapshotAt ? `Last cloud snapshot · ${new Date(lastSnapshotAt).toLocaleString()}` : "No cloud snapshot yet"}</div></CardContent></Card></section>
         </main>
       </div>
     </div>

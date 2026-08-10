@@ -20,6 +20,14 @@ async function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS workspace_snapshots (
+      id BIGSERIAL PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      data JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
   return sql;
 }
 
@@ -33,11 +41,28 @@ export async function GET() {
   try {
     const sql = await ensureSchema();
     const rows = await sql`SELECT data, updated_at FROM workspaces WHERE id = ${workspaceId} LIMIT 1`;
-    if (!rows.length) return NextResponse.json({ workspace: null, updatedAt: null });
-    return NextResponse.json({ workspace: rows[0].data, updatedAt: rows[0].updated_at });
+    const snapshots = await sql`SELECT created_at FROM workspace_snapshots WHERE workspace_id = ${workspaceId} ORDER BY created_at DESC LIMIT 1`;
+    if (!rows.length) return NextResponse.json({ workspace: null, updatedAt: null, lastSnapshotAt: snapshots[0]?.created_at ?? null });
+    return NextResponse.json({ workspace: rows[0].data, updatedAt: rows[0].updated_at, lastSnapshotAt: snapshots[0]?.created_at ?? null });
   } catch (error) {
     console.error("Workspace read failed", error);
     return NextResponse.json({ error: "Cloud storage is unavailable" }, { status: 503 });
+  }
+}
+
+export async function POST() {
+  try {
+    const sql = await ensureSchema();
+    const rows = await sql`
+      INSERT INTO workspace_snapshots (workspace_id, data)
+      SELECT id, data FROM workspaces WHERE id = ${workspaceId}
+      RETURNING created_at
+    `;
+    if (!rows.length) return NextResponse.json({ error: "Save the workspace before creating a snapshot" }, { status: 409 });
+    return NextResponse.json({ ok: true, createdAt: rows[0].created_at });
+  } catch (error) {
+    console.error("Workspace snapshot failed", error);
+    return NextResponse.json({ error: "Snapshot could not be created" }, { status: 503 });
   }
 }
 

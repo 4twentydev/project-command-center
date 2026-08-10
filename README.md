@@ -21,6 +21,8 @@ Projects can be edited directly from their card, including status, workspace, st
 
 Tasks support priorities, due dates, notes, project grouping, editing, deletion, completion, overdue signals, and focused Today, Next, and All views.
 
+Data safety controls include destructive-action confirmation, eight-second undo, portable JSON export/import, safe reset, and timestamped Neon cloud snapshots.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence
