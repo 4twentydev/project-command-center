@@ -27,6 +27,8 @@ Press `Ctrl/⌘ + K` for the global command palette. `Alt + N` captures a task a
 
 The focus briefing derives the three most time-sensitive actions, overdue and high-priority pressure, stalled projects, and overall project momentum from live workspace data.
 
+WORK//CTRL includes an App Router web manifest, generated application icon, production service worker, offline shell, security headers, mobile safe-area handling, and a touch-first bottom navigation dock. Install it from a supported browser while using the HTTPS Vercel deployment.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence
