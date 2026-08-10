@@ -342,12 +342,12 @@ export function Dashboard() {
   }).slice(0, 3);
   const stalledProjects = workspace.projects.filter((project) => project.status !== "Shipped" && new Date(today).getTime() - new Date(project.updatedAt).getTime() > 14 * 24 * 60 * 60 * 1000);
   const averageMomentum = workspace.projects.length ? Math.round(workspace.projects.reduce((sum, project) => sum + project.progress, 0) / workspace.projects.length) : 0;
-  const visibleTasks = useMemo(() => workspace.tasks.filter((task) => {
+  const visibleTasks = workspace.tasks.filter((task) => {
     if (taskView === "All") return true;
     if (taskView === "Today") return !task.done && Boolean(task.dueDate && task.dueDate <= today);
     return !task.done && (!task.dueDate || task.dueDate > today);
-  }).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority ?? "Medium"] - { High: 0, Medium: 1, Low: 2 }[b.priority ?? "Medium"])), [taskView, today, workspace.tasks]);
-  const taskGroups = useMemo(() => visibleTasks.reduce<Record<string, Task[]>>((groups, task) => { const name = workspace.projects.find((project) => project.id === task.projectId)?.name ?? "General"; (groups[name] ??= []).push(task); return groups; }, {}), [visibleTasks, workspace.projects]);
+  }).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority ?? "Medium"] - { High: 0, Medium: 1, Low: 2 }[b.priority ?? "Medium"]));
+  const taskGroups = visibleTasks.reduce<Record<string, Task[]>>((groups, task) => { const name = workspace.projects.find((project) => project.id === task.projectId)?.name ?? "General"; (groups[name] ??= []).push(task); return groups; }, {});
   const kinds: Array<"All" | ProjectKind> = ["All", "Software", "CNC", "Business", "Experiment"];
 
   return (
