@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Check, Factory, GitBranch, Globe2, MoveUpRight, ScanLine, Target } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
+import { SiteFooter } from "@/components/site-footer";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getCaseStudy } from "@/lib/case-studies";
 import { engagementPlanningNote } from "@/lib/engagements";
@@ -15,8 +17,8 @@ export function ServiceDetail({ service }: { service: PublicService }) {
   return <main className="min-h-screen overflow-hidden">
     <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_75%_0%,color-mix(in_oklab,var(--primary)_15%,transparent),transparent_38%)]" />
     <header className="relative mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
-      <Link href="/" className="font-mono text-xs font-semibold tracking-[0.24em]">4TWENTY<span className="text-primary">.DEV</span></Link>
-      <nav aria-label="Primary" className="flex items-center gap-1 sm:gap-2"><Link href="/#services" className="hidden px-3 py-2 text-xs text-muted-foreground transition hover:text-foreground sm:block">Services</Link><Link href="/#work" className="hidden px-3 py-2 text-xs text-muted-foreground transition hover:text-foreground md:block">Work</Link><Link href="/about" className="hidden px-3 py-2 text-xs text-muted-foreground transition hover:text-foreground lg:block">About</Link><ThemeToggle /><Link href={service.cta.href} className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary transition hover:bg-primary/15"><span className="sm:hidden">Start</span><span className="hidden sm:inline">Start a conversation</span></Link></nav>
+      <BrandMark />
+      <nav aria-label="Primary" className="flex items-center gap-1 sm:gap-2"><Link href="/#services" className="hidden px-3 py-2 text-xs text-muted-foreground transition hover:text-foreground sm:block">Software + automation</Link><Link href="/#work" className="hidden px-3 py-2 text-xs text-muted-foreground transition hover:text-foreground md:block">Work</Link><Link href="/about" className="hidden px-3 py-2 text-xs text-muted-foreground transition hover:text-foreground lg:block">About</Link><ThemeToggle /><Link href={service.cta.href} className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary transition hover:bg-primary/15"><span className="sm:hidden">Start</span><span className="hidden sm:inline">Start a conversation</span></Link></nav>
     </header>
 
     <article className="relative">
@@ -38,6 +40,6 @@ export function ServiceDetail({ service }: { service: PublicService }) {
       <section aria-labelledby="faq-heading" className="mx-auto max-w-7xl px-5 py-24 sm:px-8"><div className="grid gap-12 lg:grid-cols-[.55fr_1.45fr]"><div><div className="font-mono text-[10px] uppercase tracking-[0.24em] text-primary">Frequently asked questions</div><h2 id="faq-heading" className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Before the first conversation.</h2></div><div className="border-y border-border">{service.faqs.map(({ question, answer }) => <details key={question} className="group border-t border-border py-5 first:border-t-0"><summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-sm font-medium"><span>{question}</span><span className="font-mono text-primary transition group-open:rotate-45" aria-hidden="true">+</span></summary><p className="max-w-3xl pt-4 text-sm leading-7 text-muted-foreground">{answer}</p></details>)}</div></div></section>
     </article>
 
-    <footer className="relative border-t border-border px-5 py-8"><div className="mx-auto grid max-w-7xl gap-6 text-xs text-muted-foreground lg:grid-cols-[auto_1fr]"><span>© {new Date().getFullYear()} 4TWENTY.DEV</span><nav aria-label="Service pages" className="flex flex-wrap gap-x-5 gap-y-2 lg:justify-end">{publicServices.map((item) => <Link key={item.slug} href={`/services/${item.slug}`} aria-current={item.slug === service.slug ? "page" : undefined} className="transition hover:text-foreground aria-[current=page]:text-primary">{item.name}</Link>)}</nav></div></footer>
+    <SiteFooter><nav aria-label="Service pages" className="flex flex-wrap gap-x-5 gap-y-2 lg:justify-end">{publicServices.map((item) => <Link key={item.slug} href={`/services/${item.slug}`} aria-current={item.slug === service.slug ? "page" : undefined} className="transition hover:text-foreground aria-[current=page]:text-primary">{item.name}</Link>)}</nav></SiteFooter>
   </main>;
 }

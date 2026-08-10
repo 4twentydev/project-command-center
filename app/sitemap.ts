@@ -1,8 +1,9 @@
 import type { MetadataRoute } from "next";
 import { caseStudies } from "@/lib/case-studies";
+import { brand } from "@/lib/brand";
 import { publicServices } from "@/lib/services";
 
-const siteURL = "https://www.4twenty.dev";
+const siteURL = brand.siteURL;
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [

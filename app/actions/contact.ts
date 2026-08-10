@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { after } from "next/server";
+import { brand } from "@/lib/brand";
 import { contactDatabase } from "@/lib/contact-inquiries";
 import { sendLeadNotification } from "@/lib/lead-notification";
 
@@ -34,7 +35,7 @@ export async function submitContact(_: ContactState, formData: FormData): Promis
   if (Object.keys(errors).length) return { status: "error", message: "Check the highlighted fields.", errors };
 
   const databaseURL = process.env.DATABASE_URL;
-  if (!databaseURL || databaseURL === "[SENSITIVE]") return { status: "error", message: "The contact channel is temporarily unavailable. Email hello@4twenty.dev instead." };
+  if (!databaseURL || databaseURL === "[SENSITIVE]") return { status: "error", message: `The contact channel is temporarily unavailable. Email ${brand.email} instead.` };
 
   try {
     const requestHeaders = await headers();
@@ -58,6 +59,6 @@ export async function submitContact(_: ContactState, formData: FormData): Promis
     return { status: "success", message: "Message received. I’ll review it and get back to you directly." };
   } catch (error) {
     console.error("Contact inquiry failed", error);
-    return { status: "error", message: "The contact channel is temporarily unavailable. Email hello@4twenty.dev instead." };
+    return { status: "error", message: `The contact channel is temporarily unavailable. Email ${brand.email} instead.` };
   }
 }

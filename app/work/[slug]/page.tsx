@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CaseStudyDetail } from "@/components/case-study-detail";
+import { brand } from "@/lib/brand";
 import { caseStudies, getAdjacentCaseStudies, getCaseStudy } from "@/lib/case-studies";
 
 type CaseStudyPageProps = { params: Promise<{ slug: string }> };
@@ -21,8 +22,8 @@ export async function generateMetadata({ params }: CaseStudyPageProps): Promise<
     title: `${study.title} project profile`,
     description,
     alternates: { canonical },
-    openGraph: { title: `${study.title} · ${study.status} · 4TWENTY.DEV`, description, type: "article", url: canonical, siteName: "4TWENTY.DEV", images: [{ url: `${canonical}/opengraph-image`, width: 1200, height: 630, alt: `${study.title} project profile — ${study.status}` }] },
-    twitter: { card: "summary_large_image", title: `${study.title} · ${study.status} · 4TWENTY.DEV`, description, images: [`${canonical}/opengraph-image`] },
+    openGraph: { title: `${study.title} · ${study.status} · ${brand.name}`, description, type: "article", url: canonical, siteName: brand.name, images: [{ url: `${canonical}/opengraph-image`, width: 1200, height: 630, alt: `${study.title} project profile — ${study.status}` }] },
+    twitter: { card: "summary_large_image", title: `${study.title} · ${study.status} · ${brand.name}`, description, images: [`${canonical}/opengraph-image`] },
   };
 }
 

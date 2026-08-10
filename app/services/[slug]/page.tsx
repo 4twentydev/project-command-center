@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ServiceDetail } from "@/components/service-detail";
+import { brand } from "@/lib/brand";
 import { getPublicService, getServiceStructuredData, publicServices } from "@/lib/services";
 
 type ServicePageProps = { params: Promise<{ slug: string }> };
@@ -20,8 +21,8 @@ export async function generateMetadata({ params }: ServicePageProps): Promise<Me
     title: service.seo.title,
     description: service.seo.description,
     alternates: { canonical },
-    openGraph: { title: `${service.seo.title} · 4TWENTY.DEV`, description: service.seo.description, url: canonical, type: "website", siteName: "4TWENTY.DEV" },
-    twitter: { card: "summary", title: `${service.seo.title} · 4TWENTY.DEV`, description: service.seo.description },
+    openGraph: { title: `${service.seo.title} · ${brand.name}`, description: service.seo.description, url: canonical, type: "website", siteName: brand.name, images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: `${brand.name} — ${brand.descriptor}` }] },
+    twitter: { card: "summary_large_image", title: `${service.seo.title} · ${brand.name}`, description: service.seo.description, images: ["/opengraph-image"] },
   };
 }
 

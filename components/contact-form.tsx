@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { brand } from "@/lib/brand";
 import { engagements, getEngagement } from "@/lib/engagements";
 import { getPublicService, publicServices } from "@/lib/services";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,6 @@ export function ContactForm() {
     <div className="space-y-2"><Label htmlFor="message">What problem needs solving?</Label><Textarea id="message" name="message" placeholder="Describe what is slowing you down, what you have tried, and what a useful result would look like." aria-invalid={Boolean(state.errors?.message)} required />{state.errors?.message && <p className="text-xs text-red-400">{state.errors.message}</p>}</div>
     <div className="sr-only" aria-hidden="true"><Label htmlFor="website">Website</Label><Input id="website" name="website" tabIndex={-1} autoComplete="off" /></div>
     {state.message && <div role="status" className={cn("flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs leading-5", state.status === "success" ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400" : "border-red-500/20 bg-red-500/10 text-red-400")}>{state.status === "success" && <CheckCircle2 className="mt-0.5 size-4 shrink-0" />}{state.message}</div>}
-    <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between"><p className="max-w-md text-xs leading-5 text-muted-foreground">No mailing list and no sales pipeline theater—just a direct project conversation.</p><SubmitButton /></div>
+    <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between"><p className="max-w-md text-xs leading-5 text-muted-foreground">A direct project conversation with {brand.founder}. No mailing list, lead resale, or automated sales sequence.</p><SubmitButton /></div>
   </form>;
 }

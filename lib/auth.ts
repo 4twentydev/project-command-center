@@ -1,4 +1,5 @@
 import { passkey } from "@better-auth/passkey";
+import { brand } from "@/lib/brand";
 import { betterAuth } from "better-auth";
 import { Pool } from "pg";
 
@@ -12,7 +13,7 @@ const databaseURL = readableEnvironmentValue(process.env.DATABASE_URL, "postgres
 const secret = readableEnvironmentValue(process.env.BETTER_AUTH_SECRET, "local-development-secret-change-before-deploying");
 
 export const auth = betterAuth({
-  appName: "4TWENTY.DEV",
+  appName: brand.name,
   baseURL,
   secret,
   database: new Pool({ connectionString: databaseURL }),
@@ -23,7 +24,7 @@ export const auth = betterAuth({
   plugins: [
     passkey({
       rpID: relyingPartyId,
-      rpName: "4TWENTY.DEV",
+      rpName: brand.name,
       origin: baseURL,
       authenticatorSelection: {
         residentKey: "preferred",

@@ -1,4 +1,5 @@
 import type { EngagementId } from "@/lib/engagements";
+import { brand } from "@/lib/brand";
 
 export type ServiceSlug =
   | "manufacturing-software"
@@ -205,7 +206,7 @@ export function getServiceContactHref(service: PublicService) {
 }
 
 export function getServiceStructuredData(service: PublicService) {
-  const url = `https://www.4twenty.dev/services/${service.slug}`;
+  const url = `${brand.siteURL}/services/${service.slug}`;
   return {
     "@context": "https://schema.org",
     "@graph": [
@@ -216,7 +217,7 @@ export function getServiceStructuredData(service: PublicService) {
         serviceType: service.name,
         url,
         description: service.seo.description,
-        provider: { "@type": "Organization", "@id": "https://www.4twenty.dev/#organization", name: "4TWENTY.DEV", url: "https://www.4twenty.dev" },
+        provider: { "@type": "Organization", "@id": `${brand.siteURL}/#organization`, name: brand.name, url: brand.siteURL },
         audience: { "@type": "Audience", audienceType: service.targetCustomer },
         offers: {
           "@type": "Offer",
@@ -232,8 +233,8 @@ export function getServiceStructuredData(service: PublicService) {
       {
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Home", item: "https://www.4twenty.dev" },
-          { "@type": "ListItem", position: 2, name: "Services", item: "https://www.4twenty.dev/#services" },
+          { "@type": "ListItem", position: 1, name: "Home", item: brand.siteURL },
+          { "@type": "ListItem", position: 2, name: "Services", item: `${brand.siteURL}/#services` },
           { "@type": "ListItem", position: 3, name: service.name, item: url },
         ],
       },

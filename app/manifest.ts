@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
+import { brand } from "@/lib/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "WORK//CTRL Project Command Center",
-    short_name: "WORK//CTRL",
-    description: "A personal operating system for projects, tasks, and ideas.",
+    name: `${brand.name} — ${brand.descriptor}`,
+    short_name: brand.name,
+    description: brand.positioning,
     start_url: "/",
     display: "standalone",
     background_color: "#111419",

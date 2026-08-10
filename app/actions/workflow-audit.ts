@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { after } from "next/server";
+import { brand } from "@/lib/brand";
 import { contactDatabase } from "@/lib/contact-inquiries";
 import { recordConversionEvent } from "@/lib/conversion-analytics";
 import { workflowAuditEngagement } from "@/lib/engagements";
@@ -25,7 +26,7 @@ export async function submitWorkflowAudit(_: WorkflowAuditState, formData: FormD
   try {
     sql = await contactDatabase();
   } catch {
-    return { status: "error", message: "The secure intake channel is temporarily unavailable. Email hello@4twenty.dev instead." };
+    return { status: "error", message: `The secure intake channel is temporarily unavailable. Email ${brand.email} instead.` };
   }
 
   const result = await processWorkflowAudit(payload, {
@@ -45,9 +46,9 @@ export async function submitWorkflowAudit(_: WorkflowAuditState, formData: FormD
     after(() => recordConversionEvent({ event: "workflow_audit_validation_error", path: "/workflow-audit", visitorHash, metadata: { fields: Object.keys(result.errors) } }).catch(() => undefined));
     return { status: "error", message: "Check the highlighted fields and try again.", errors: result.errors };
   }
-  if (result.status === "rate_limited") return { status: "error", message: "Several audit requests have come from this connection recently. Try again later or email hello@4twenty.dev." };
+  if (result.status === "rate_limited") return { status: "error", message: `Several audit requests have come from this connection recently. Try again later or email ${brand.email}.` };
   if (result.status === "duplicate") return { status: "duplicate", message: "This audit request is already in the queue. There is no need to submit it again." };
-  if (result.status === "server_error") return { status: "error", message: "The secure intake channel is temporarily unavailable. Email hello@4twenty.dev instead." };
+  if (result.status === "server_error") return { status: "error", message: `The secure intake channel is temporarily unavailable. Email ${brand.email} instead.` };
 
   after(async () => {
     const notificationTask = (async () => {

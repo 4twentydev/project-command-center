@@ -9,15 +9,15 @@ export const founderExperience = [
 ] as const;
 
 export const founder = {
-  name: "Brandon York",
-  role: "Founder and builder behind 4TWENTY.DEV",
+  name: brand.founder,
+  role: `Founder and builder behind ${brand.name}`,
   shortIntroduction: "Brandon York works across production, fabrication, operations, and software. That combination keeps every system grounded in the way quotes, material, people, paperwork, and finished work actually move.",
   portrait: {
     publicPath: "/media/founder/brandon-york.jpg",
     sourceWidth: 853,
     sourceHeight: 1280,
     aspectRatio: "4:5",
-    alt: "Brandon York, founder of 4TWENTY.DEV",
+    alt: `${brand.founder}, founder of ${brand.name}`,
   },
 } as const;
 
@@ -26,22 +26,23 @@ export const founderStructuredData = {
   "@graph": [
     {
       "@type": "Person",
-      "@id": "https://www.4twenty.dev/about#brandon-york",
+      "@id": `${brand.siteURL}/about#brandon-york`,
       name: founder.name,
-      url: "https://www.4twenty.dev/about",
-      image: `https://www.4twenty.dev${founder.portrait.publicPath}`,
+      url: `${brand.siteURL}/about`,
+      image: `${brand.siteURL}${founder.portrait.publicPath}`,
       description: founder.shortIntroduction,
       knowsAbout: [...founderExperience],
-      memberOf: { "@id": "https://www.4twenty.dev/#organization" },
+      memberOf: { "@id": `${brand.siteURL}/#organization` },
     },
     {
       "@type": "Organization",
-      "@id": "https://www.4twenty.dev/#organization",
-      name: "4TWENTY.DEV",
-      url: "https://www.4twenty.dev",
-      email: "hello@4twenty.dev",
-      description: "Custom software, workflow automation, and digital fabrication systems for real-world businesses.",
-      founder: { "@id": "https://www.4twenty.dev/about#brandon-york" },
+      "@id": `${brand.siteURL}/#organization`,
+      name: brand.name,
+      url: brand.siteURL,
+      email: brand.email,
+      description: brand.positioning,
+      founder: { "@id": `${brand.siteURL}/about#brandon-york` },
     },
   ],
 } as const;
+import { brand } from "@/lib/brand";

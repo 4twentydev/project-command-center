@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { brand } from "@/lib/brand";
 import { workflowAuditContactMethods, workflowAuditEmployeeRanges, workflowAuditIndustries, type WorkflowAuditField } from "@/lib/workflow-audit";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +40,7 @@ export function WorkflowAuditForm({ bookingURL }: { bookingURL: string | null })
   };
 
   if (state.status === "success" || state.status === "duplicate") {
-    return <div role="status" className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-6 sm:p-8"><div className="grid size-11 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="size-5" /></div><div className="mt-5 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400">{state.status === "duplicate" ? "Already received" : "Intake received"}</div><h2 className="mt-2 text-2xl font-semibold tracking-tight">The next step is a direct review.</h2><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">{state.message}</p><div className="mt-6 flex flex-wrap gap-3">{bookingURL ? <WorkflowAuditBookingLink href={bookingURL} className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground" /> : <a href="mailto:hello@4twenty.dev?subject=Workflow%20audit%20follow-up" className="inline-flex h-11 items-center gap-2 rounded-lg border border-border bg-card px-5 text-sm font-medium">Email a follow-up <ArrowRight className="size-4" /></a>}<Link href="/" className="inline-flex h-11 items-center rounded-lg px-4 text-sm text-muted-foreground hover:text-foreground">Return to 4TWENTY.DEV</Link></div></div>;
+    return <div role="status" className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-6 sm:p-8"><div className="grid size-11 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"><CheckCircle2 className="size-5" /></div><div className="mt-5 font-mono text-[9px] uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400">{state.status === "duplicate" ? "Already received" : "Intake received"}</div><h2 className="mt-2 text-2xl font-semibold tracking-tight">The next step is a direct review.</h2><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">{state.message}</p><div className="mt-6 flex flex-wrap gap-3">{bookingURL ? <WorkflowAuditBookingLink href={bookingURL} className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground" /> : <a href={`mailto:${brand.email}?subject=${encodeURIComponent("Workflow audit follow-up | 4TWENTY.DEV")}`} className="inline-flex h-11 items-center gap-2 rounded-lg border border-border bg-card px-5 text-sm font-medium">Email a follow-up <ArrowRight className="size-4" /></a>}<Link href="/" className="inline-flex h-11 items-center rounded-lg px-4 text-sm text-muted-foreground hover:text-foreground">Return to {brand.name}</Link></div></div>;
   }
 
   return <form action={action} onFocusCapture={trackStart} onInvalidCapture={trackInvalid} className="space-y-6" noValidate={false}>

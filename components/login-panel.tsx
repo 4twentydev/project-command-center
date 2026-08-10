@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Fingerprint, KeyRound, LoaderCircle, ShieldCheck } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { brand } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -27,7 +28,7 @@ export function LoginPanel({ nextPath = "/dashboard" }: { nextPath?: "/dashboard
   async function submit(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setMessage("");
     if (mode === "setup") {
-      const { error } = await authClient.signUp.email({ email, password, name: "4twenty" });
+      const { error } = await authClient.signUp.email({ email, password, name: brand.founder });
       if (error) setMessage(error.message ?? "The owner account could not be created.");
       else router.push("/account?enroll=1");
     } else {
