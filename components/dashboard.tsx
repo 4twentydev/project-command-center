@@ -488,6 +488,10 @@ export function Dashboard() {
     { id: "weekly-review", section: "Workspace", label: "Start weekly review", hint: "Wins + blockers + priorities", icon: <BookOpenCheck />, run: () => setReviewOpen(true) },
     { id: "settings", section: "Workspace", label: "Workspace settings", hint: "Identity + defaults", icon: <Settings />, run: () => setSettingsOpen(true) },
     ...workspace.projects.map((project) => ({ id: `project-${project.id}`, section: "Projects", label: project.name, hint: `Edit · ${project.status}`, icon: <CircleDot />, run: () => setEditingProject(project) })),
+    ...workspace.tasks.map((task) => ({ id: `task-${task.id}`, section: "Tasks", label: task.title, hint: `${task.done ? "Completed" : task.priority ?? "Medium"}${task.dueDate ? ` · ${task.dueDate}` : ""}`, icon: task.done ? <CheckCircle2 /> : <ListChecks />, run: () => setEditingTask(task) })),
+    ...(workspace.inbox ?? []).map((item) => ({ id: `inbox-${item.id}`, section: "Inbox", label: item.text, hint: "Untriaged capture", icon: <Inbox />, run: () => document.querySelector("#inbox")?.scrollIntoView() })),
+    ...(workspace.notes ?? []).map((note) => ({ id: `note-${note.id}`, section: "Journal", label: note.content, hint: `${workspace.projects.find((project) => project.id === note.projectId)?.name ?? "Project"} · ${note.type}`, icon: <BookOpenCheck />, run: () => document.querySelector("#journal")?.scrollIntoView() })),
+    ...(workspace.reviews ?? []).slice(0, 12).map((review) => ({ id: `review-${review.id}`, section: "Reviews", label: review.nextPriorities || review.wins || "Weekly review", hint: new Date(review.createdAt).toLocaleDateString(), icon: <BookOpenCheck />, run: () => setReviewOpen(true) })),
   ];
   const filteredCommands = commandActions.filter((action) => `${action.label} ${action.hint} ${action.section}`.toLowerCase().includes(commandQuery.toLowerCase()));
   const commandSections = [...new Set(filteredCommands.map((action) => action.section))];

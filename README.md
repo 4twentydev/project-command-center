@@ -51,6 +51,8 @@ GitHub project intelligence includes open pull requests with draft/ready state, 
 
 The project journal preserves cloud-synced updates, decisions, blockers, and notes by project, including timestamps, filtering, deletion confirmation, undo, and activity history.
 
+The command palette provides universal search across projects, tasks, inbox captures, journal entries, and weekly reviews, opening editors or navigating directly to the relevant workspace section.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence
