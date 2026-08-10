@@ -38,5 +38,9 @@ await sql`CREATE TABLE IF NOT EXISTS consultations (
 )`;
 await sql`CREATE INDEX IF NOT EXISTS consultations_updated_at_idx ON consultations (updated_at DESC)`;
 await sql`CREATE INDEX IF NOT EXISTS consultations_lead_id_idx ON consultations (lead_id) WHERE lead_id IS NOT NULL`;
+await sql`CREATE TABLE IF NOT EXISTS marketing_workspaces (
+  id TEXT PRIMARY KEY, data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)`;
 
 console.log("Application database migration completed.");

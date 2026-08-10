@@ -71,3 +71,10 @@ button, a { cursor: pointer; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }
+
+@media print {
+  @page { size: letter; margin: 0; }
+  .no-print { display: none !important; }
+  .print-page { width: 8.5in !important; min-height: 11in !important; break-after: page; page-break-after: always; }
+  .print-page:last-child { break-after: auto; page-break-after: auto; }
+}

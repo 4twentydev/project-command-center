@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   AlertTriangle, ArrowLeft, Check, CheckCircle2, ClipboardCheck, ClipboardCopy, Factory,
-  FileSearch, Globe2, Lightbulb, Loader2, Plus, Save, ScanLine, Trash2, Workflow, X,
+  FileSearch, Globe2, Lightbulb, Loader2, Megaphone, Plus, Save, ScanLine, Trash2, Workflow, X,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -154,7 +154,7 @@ export function ConsultationWorkspace({ initialConsultations, initialLead, stora
   }
 
   return <main className="min-h-screen bg-background px-4 py-5 text-foreground sm:px-7 lg:px-9"><div className="mx-auto max-w-[1600px]">
-    <header className="mb-6 flex flex-col gap-5 border-b border-border pb-6 lg:flex-row lg:items-end lg:justify-between"><div><Link href="/dashboard" className="mb-3 inline-flex min-h-10 items-center gap-2 text-xs text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-3.5" />Command Center</Link><div className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Consultation operations</div><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Discovery Playbooks</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Service-specific guides, durable consultation notes, and a clean handoff into scoping and development.</p></div><div className="flex flex-wrap items-center gap-2"><Badge className="border-border bg-secondary text-muted-foreground">{consultations.filter((item) => item.status !== "archived").length} active</Badge>{draft && <Button variant="outline" onClick={() => setDraft(null)}><X />Close record</Button>}<Button onClick={() => start("manufacturing-software")}><Plus />New consultation</Button></div></header>
+    <header className="mb-6 flex flex-col gap-5 border-b border-border pb-6 lg:flex-row lg:items-end lg:justify-between"><div><Link href="/dashboard" className="mb-3 inline-flex min-h-10 items-center gap-2 text-xs text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-3.5" />Command Center</Link><div className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Consultation operations</div><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Discovery Playbooks</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">Service-specific guides, durable consultation notes, and a clean handoff into scoping and development.</p></div><div className="flex flex-wrap items-center gap-2"><Badge className="border-border bg-secondary text-muted-foreground">{consultations.filter((item) => item.status !== "archived").length} active</Badge><Button variant="ghost" asChild><Link href="/dashboard/marketing"><Megaphone />Marketing</Link></Button>{draft && <Button variant="outline" onClick={() => setDraft(null)}><X />Close record</Button>}<Button onClick={() => start("manufacturing-software")}><Plus />New consultation</Button></div></header>
 
     {notice && <div role="status" className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-foreground"><span>{notice}</span><button onClick={() => setNotice(null)} aria-label="Dismiss notice"><X className="size-3.5" /></button></div>}
 
