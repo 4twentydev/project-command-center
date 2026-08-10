@@ -29,8 +29,17 @@ describe("case study data", () => {
       expect(study.technologies.length).toBeGreaterThan(1);
       expect(study.outcome.length).toBeGreaterThan(20);
       expect(study.limitations.length).toBeGreaterThan(20);
+      expect(study.media.length).toBeGreaterThan(0);
+      expect(study.media.every((item) => item.caption.length > 20 && item.description.length > 20)).toBeTrue();
+      expect(study.previewMediaId ? study.media.some((item) => item.id === study.previewMediaId) : true).toBeTrue();
       expect(study.cta.href).toBe("/#contact");
     }
+  });
+
+  test("uses honest placeholders until verified media is supplied", () => {
+    const placeholders = caseStudies.flatMap((study) => study.media).filter((item) => item.type === "placeholder");
+    expect(placeholders).toHaveLength(3);
+    expect(placeholders.every((item) => item.caption.toLowerCase().match(/not been supplied|no interface/))).toBeTrue();
   });
 
   test("labels non-live results as intended outcomes", () => {

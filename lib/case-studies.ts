@@ -1,4 +1,5 @@
 import type { ProjectStatus } from "@/lib/project-status";
+import type { ProjectMedia } from "@/lib/project-media";
 
 export type CaseStudy = {
   slug: string;
@@ -18,6 +19,8 @@ export type CaseStudy = {
   outcomeLabel: "Operational outcome" | "Intended outcome";
   outcome: string;
   limitations: string;
+  media: ProjectMedia[];
+  previewMediaId?: string;
   cta: { label: string; href: string };
 };
 
@@ -40,6 +43,8 @@ export const caseStudies: CaseStudy[] = [
     outcomeLabel: "Operational outcome",
     outcome: "The live system provides one daily control surface for reviewing active work and deciding what to move next. The value is qualitative: less context reconstruction and a clearer operating picture, not a verified claim of time or cost savings.",
     limitations: "This is an owner-operated system, not a validated multi-tenant product. Integrations depend on configured service credentials, and several planning signals are intentionally lightweight rather than predictive analytics.",
+    media: [{ id: "command-center-overview", type: "placeholder", label: "Command center overview", description: "A verified view of the WORK//CTRL dashboard across desktop and mobile.", caption: "Final product screenshots have not been supplied. This placeholder does not represent the interface.", requestedAsset: "Supply a desktop dashboard screenshot and, optionally, a mobile command-center screenshot." }],
+    previewMediaId: "command-center-overview",
     cta: { label: "Discuss an internal command center", href: "/#contact" },
   },
   {
@@ -60,6 +65,7 @@ export const caseStudies: CaseStudy[] = [
     outcomeLabel: "Intended outcome",
     outcome: "The intended outcome is a clearer path from inquiry to finished sign, with fewer lost decisions and less dependence on verbal status checks. No production results or savings have been verified because the system remains an active concept.",
     limitations: "SignForge remains an active concept, not a deployed customer system. Machine integrations, quoting rules, design-file handling, and the exact production model still require validation against a real shop’s equipment and workflow.",
+    media: [{ id: "workflow-concept", type: "placeholder", label: "Workflow concept", description: "A verified workflow map or functional prototype view for SignForge.", caption: "No interface or fabrication media is shown because SignForge remains an active concept.", requestedAsset: "Supply a verified workflow diagram or prototype screen when one exists." }],
     cta: { label: "Audit a fabrication workflow", href: "/#contact" },
   },
   {
@@ -80,6 +86,8 @@ export const caseStudies: CaseStudy[] = [
     outcomeLabel: "Intended outcome",
     outcome: "The intended outcome is faster, more confident inventory decisions and fewer manual status checks. The prototype has not produced verified customer, savings, accuracy, or throughput metrics.",
     limitations: "The prototype does not yet claim barcode hardware support, accounting integration, demand forecasting, or production-grade synchronization. Inventory rules still need validation against actual receiving and consumption behavior.",
+    media: [{ id: "inventory-overview", type: "placeholder", label: "Inventory prototype overview", description: "A verified view of the Shop Inventory prototype at desktop and mobile sizes.", caption: "Final prototype screenshots have not been supplied. This placeholder does not represent the interface.", requestedAsset: "Supply a desktop inventory view and a mobile stock-update screen." }],
+    previewMediaId: "inventory-overview",
     cta: { label: "Discuss inventory visibility", href: "/#contact" },
   },
 ];
