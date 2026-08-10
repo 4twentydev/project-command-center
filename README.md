@@ -23,6 +23,8 @@ Tasks support priorities, due dates, notes, project grouping, editing, deletion,
 
 Data safety controls include destructive-action confirmation, eight-second undo, portable JSON export/import, safe reset, and timestamped Neon cloud snapshots.
 
+Press `Ctrl/⌘ + K` for the global command palette. `Alt + N` captures a task and `Alt + I` captures an idea from anywhere outside a form field.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence
