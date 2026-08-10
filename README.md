@@ -71,6 +71,8 @@ The command palette provides universal search across projects, tasks, inbox capt
 
 The public studio site includes clearly staged case studies for WORK//CTRL, SignForge, and Shop Inventory. Its contact form validates on the server, uses a honeypot and hashed-IP rate limit, and stores inquiries in the Neon `contact_inquiries` table without exposing database credentials to the browser.
 
+Authenticated owners can review and manage those inquiries at `/dashboard/leads`, move them through new/contacted/archived states, and launch a pre-addressed email reply. Optional Resend notifications use `RESEND_API_KEY`, `CONTACT_NOTIFICATION_EMAIL`, and `CONTACT_FROM_EMAIL`; inquiry storage succeeds even when email delivery is not configured or temporarily fails.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Application-level owner authentication protects the dashboard and every writable workspace API.
 
 ## Live project intelligence

@@ -1,8 +1,10 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { neon } from "@neondatabase/serverless";
 import { headers } from "next/headers";
+import { after } from "next/server";
+import { contactDatabase } from "@/lib/contact-inquiries";
+import { sendLeadNotification } from "@/lib/lead-notification";
 
 export type ContactState = {
   status: "idle" | "success" | "error";
@@ -39,22 +41,12 @@ export async function submitContact(_: ContactState, formData: FormData): Promis
     const forwarded = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
     const hashSalt = process.env.CONTACT_HASH_SALT ?? process.env.BETTER_AUTH_SECRET ?? "contact";
     const ipHash = createHash("sha256").update(`${hashSalt}:${forwarded}`).digest("hex");
-    const sql = neon(databaseURL);
-    await sql`CREATE TABLE IF NOT EXISTS contact_inquiries (
-      id BIGSERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      company TEXT,
-      project_type TEXT,
-      budget TEXT,
-      message TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'new',
-      ip_hash TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )`;
+    const sql = await contactDatabase();
     const recent = await sql`SELECT COUNT(*)::int AS count FROM contact_inquiries WHERE ip_hash = ${ipHash} AND created_at > NOW() - INTERVAL '1 hour'`;
     if (Number(recent[0]?.count ?? 0) >= 5) return { status: "error", message: "That channel has received several messages recently. Try again later or email directly." };
-    await sql`INSERT INTO contact_inquiries (name, email, company, project_type, budget, message, ip_hash) VALUES (${name}, ${email}, ${company || null}, ${projectType || null}, ${budget || null}, ${message}, ${ipHash})`;
+    const inserted = await sql`INSERT INTO contact_inquiries (name, email, company, project_type, budget, message, ip_hash) VALUES (${name}, ${email}, ${company || null}, ${projectType || null}, ${budget || null}, ${message}, ${ipHash}) RETURNING id`;
+    const inquiryId = Number(inserted[0].id);
+    after(async () => { try { await sendLeadNotification({ id: inquiryId, name, email, company, projectType, budget, message }); } catch (error) { console.error("Lead notification failed", error); } });
     return { status: "success", message: "Message received. I’ll review it and get back to you directly." };
   } catch (error) {
     console.error("Contact inquiry failed", error);

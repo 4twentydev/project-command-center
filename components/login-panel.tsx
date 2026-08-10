@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
-export function LoginPanel({ nextPath = "/dashboard" }: { nextPath?: "/dashboard" | "/account" }) {
+export function LoginPanel({ nextPath = "/dashboard" }: { nextPath?: "/dashboard" | "/dashboard/leads" | "/account" }) {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "setup">("login");
   const [email, setEmail] = useState("");
