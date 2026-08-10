@@ -33,6 +33,8 @@ Weekly reviews capture wins, blockers, lessons, and next priorities; retain up t
 
 Daily browser push reminders are stored per device in Neon and sent by a secured Vercel Cron job at `14:00 UTC` (approximately 7–8 AM Denver time depending on daylight saving). Configure `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, and `CRON_SECRET` in Vercel.
 
+The planning calendar provides month navigation, deadline chips, project-aware upcoming work, recent completion history, and direct task editing/completion. Completed tasks record a completion timestamp for accurate timeline ordering.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence

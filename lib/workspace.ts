@@ -8,6 +8,7 @@ export type Task = {
   dueDate?: string;
   notes?: string;
   done: boolean;
+  completedAt?: string;
   createdAt: string;
 };
 
