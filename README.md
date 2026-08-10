@@ -49,6 +49,8 @@ Operating analytics calculate seven-day throughput, thirty-day completion rate, 
 
 GitHub project intelligence includes open pull requests with draft/ready state, open issues, direct links, and an aggregated development queue across tracked repositories.
 
+The project journal preserves cloud-synced updates, decisions, blockers, and notes by project, including timestamps, filtering, deletion confirmation, undo, and activity history.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence

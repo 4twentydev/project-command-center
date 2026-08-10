@@ -9,6 +9,7 @@ describe("workspace validation", () => {
     expect(workspace.reviews).toEqual([]);
     expect(workspace.inbox).toEqual([]);
     expect(workspace.settings?.timezone).toBe("America/Denver");
+    expect(workspace.notes).toEqual([]);
     expect(workspace.tasks[0].priority).toBe("Medium");
   });
 });

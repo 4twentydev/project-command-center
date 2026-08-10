@@ -42,6 +42,14 @@ export type WorkspaceSettings = {
   defaultTaskPriority: "Low" | "Medium" | "High";
 };
 
+export type ProjectNote = {
+  id: string;
+  projectId: string;
+  type: "Update" | "Decision" | "Blocker" | "Note";
+  content: string;
+  createdAt: string;
+};
+
 export const defaultWorkspaceSettings: WorkspaceSettings = {
   displayName: "4twen",
   timezone: "America/Denver",
@@ -58,7 +66,8 @@ export type Workspace = {
   reviews?: WeeklyReview[];
   inbox?: InboxItem[];
   settings?: WorkspaceSettings;
+  notes?: ProjectNote[];
 };
 
-export const emptyWorkspace: Workspace = { projects: [], tasks: [], activity: [], reviews: [], inbox: [], settings: defaultWorkspaceSettings };
+export const emptyWorkspace: Workspace = { projects: [], tasks: [], activity: [], reviews: [], inbox: [], settings: defaultWorkspaceSettings, notes: [] };
 export const workspaceStorageKey = "work-ctrl-workspace-v1";

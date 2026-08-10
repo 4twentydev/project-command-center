@@ -14,5 +14,6 @@ export function normalizeWorkspace(value: Workspace): Workspace {
     reviews: value.reviews ?? [],
     inbox: value.inbox ?? [],
     settings: { ...defaultWorkspaceSettings, ...value.settings },
+    notes: value.notes ?? [],
   };
 }
