@@ -37,6 +37,8 @@ The planning calendar provides month navigation, deadline chips, project-aware u
 
 Reliability tooling includes shared runtime workspace validation, legacy-data normalization, route-level error and loading states, a `/api/health` dependency check, and Bun tests for focus selection, task views, and workspace compatibility.
 
+Captured ideas enter a dedicated inbox for later triage. Inbox items can be promoted to medium-priority tasks, converted into planning projects, or archived, with every decision added to activity history.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence

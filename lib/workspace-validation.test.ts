@@ -7,6 +7,7 @@ describe("workspace validation", () => {
   test("normalizes optional collections and task priority", () => {
     const workspace = normalizeWorkspace({ projects: [], tasks: [{ id: "1", title: "Test", done: false, createdAt: "2026-08-09" }], activity: [] });
     expect(workspace.reviews).toEqual([]);
+    expect(workspace.inbox).toEqual([]);
     expect(workspace.tasks[0].priority).toBe("Medium");
   });
 });

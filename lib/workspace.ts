@@ -27,12 +27,19 @@ export type WeeklyReview = {
   createdAt: string;
 };
 
+export type InboxItem = {
+  id: string;
+  text: string;
+  createdAt: string;
+};
+
 export type Workspace = {
   projects: Project[];
   tasks: Task[];
   activity: ActivityItem[];
   reviews?: WeeklyReview[];
+  inbox?: InboxItem[];
 };
 
-export const emptyWorkspace: Workspace = { projects: [], tasks: [], activity: [], reviews: [] };
+export const emptyWorkspace: Workspace = { projects: [], tasks: [], activity: [], reviews: [], inbox: [] };
 export const workspaceStorageKey = "work-ctrl-workspace-v1";
