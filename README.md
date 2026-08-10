@@ -17,6 +17,8 @@ Open `http://localhost:3000`. Use `bun run build` to verify the production build
 
 Projects, tasks, captured ideas, and activity are now created in the dashboard and automatically persisted to browser local storage under `work-ctrl-workspace-v1`. The app starts with a clean slate.
 
+Projects can be edited directly from their card, including status, workspace, stack, momentum, next action, repository, and deployment links.
+
 This local-first version requires no database or environment variables. Data remains in the same browser profile; replace the storage adapter with a hosted database when cross-device sync or multiple users are needed.
 
 ## Deploy
