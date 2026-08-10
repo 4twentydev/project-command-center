@@ -35,6 +35,8 @@ Daily browser push reminders are stored per device in Neon and sent by a secured
 
 The planning calendar provides month navigation, deadline chips, project-aware upcoming work, recent completion history, and direct task editing/completion. Completed tasks record a completion timestamp for accurate timeline ordering.
 
+Reliability tooling includes shared runtime workspace validation, legacy-data normalization, route-level error and loading states, a `/api/health` dependency check, and Bun tests for focus selection, task views, and workspace compatibility.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence

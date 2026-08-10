@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import type { Project, ProjectKind, ProjectStatus } from "@/lib/projects";
 import { emptyWorkspace, workspaceStorageKey, type Task, type WeeklyReview, type Workspace } from "@/lib/workspace";
+import { selectFocusTasks, selectTasksForView } from "@/lib/planning";
+import { isWorkspaceData, normalizeWorkspace } from "@/lib/workspace-validation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,11 +36,6 @@ type TaskView = "Today" | "Next" | "All";
 type Confirmation = { title: string; message: string; actionLabel: string; onConfirm: () => void };
 type UndoState = { label: string; workspace: Workspace };
 
-function isWorkspaceData(value: unknown): value is Workspace {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<Workspace>;
-  return Array.isArray(candidate.projects) && Array.isArray(candidate.tasks) && Array.isArray(candidate.activity);
-}
 type ProjectIntelligence = {
   github: null | { available: boolean; private?: boolean; defaultBranch?: string; openIssues?: number; pushedAt?: string; latestCommit?: null | { sha: string; message: string; url: string; date?: string } };
   vercel: null | { reachable: boolean; state: string | null; target?: string | null; createdAt?: number; url: string; checkedAt: string };
@@ -286,8 +283,9 @@ export function Dashboard() {
         const payload = await response.json() as { workspace: Workspace | null; lastSnapshotAt?: string | null };
         if (cancelled) return;
         if (payload.workspace) {
-          setWorkspace(payload.workspace);
-          localStorage.setItem(workspaceStorageKey, JSON.stringify(payload.workspace));
+          const normalized = normalizeWorkspace(payload.workspace);
+          setWorkspace(normalized);
+          localStorage.setItem(workspaceStorageKey, JSON.stringify(normalized));
         } else {
           setWorkspace(localWorkspace);
           if (localWorkspace.projects.length || localWorkspace.tasks.length || localWorkspace.activity.length) {
@@ -429,19 +427,10 @@ export function Dashboard() {
   const today = new Date().toISOString().slice(0, 10);
   const overdueTasks = workspace.tasks.filter((task) => !task.done && task.dueDate && task.dueDate < today);
   const highPriorityTasks = workspace.tasks.filter((task) => !task.done && task.priority === "High");
-  const focusTasks = [...workspace.tasks].filter((task) => !task.done).sort((a, b) => {
-    const dueA = a.dueDate ?? "9999-12-31";
-    const dueB = b.dueDate ?? "9999-12-31";
-    if (dueA !== dueB) return dueA.localeCompare(dueB);
-    return ({ High: 0, Medium: 1, Low: 2 }[a.priority ?? "Medium"] - { High: 0, Medium: 1, Low: 2 }[b.priority ?? "Medium"]);
-  }).slice(0, 3);
+  const focusTasks = selectFocusTasks(workspace.tasks);
   const stalledProjects = workspace.projects.filter((project) => project.status !== "Shipped" && new Date(today).getTime() - new Date(project.updatedAt).getTime() > 14 * 24 * 60 * 60 * 1000);
   const averageMomentum = workspace.projects.length ? Math.round(workspace.projects.reduce((sum, project) => sum + project.progress, 0) / workspace.projects.length) : 0;
-  const visibleTasks = workspace.tasks.filter((task) => {
-    if (taskView === "All") return true;
-    if (taskView === "Today") return !task.done && Boolean(task.dueDate && task.dueDate <= today);
-    return !task.done && (!task.dueDate || task.dueDate > today);
-  }).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority ?? "Medium"] - { High: 0, Medium: 1, Low: 2 }[b.priority ?? "Medium"]));
+  const visibleTasks = selectTasksForView(workspace.tasks, taskView, today);
   const taskGroups = visibleTasks.reduce<Record<string, Task[]>>((groups, task) => { const name = workspace.projects.find((project) => project.id === task.projectId)?.name ?? "General"; (groups[name] ??= []).push(task); return groups; }, {});
   const kinds: Array<"All" | ProjectKind> = ["All", "Software", "CNC", "Business", "Experiment"];
 

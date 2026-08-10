@@ -1,6 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { NextResponse } from "next/server";
-import type { Workspace } from "@/lib/workspace";
+import { isWorkspaceData } from "@/lib/workspace-validation";
 
 export const runtime = "nodejs";
 const workspaceId = "primary";
@@ -29,12 +29,6 @@ async function ensureSchema() {
     )
   `;
   return sql;
-}
-
-function isWorkspace(value: unknown): value is Workspace {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<Workspace>;
-  return Array.isArray(candidate.projects) && Array.isArray(candidate.tasks) && Array.isArray(candidate.activity);
 }
 
 export async function GET() {
@@ -69,7 +63,7 @@ export async function POST() {
 export async function PUT(request: Request) {
   try {
     const workspace = await request.json();
-    if (!isWorkspace(workspace)) return NextResponse.json({ error: "Invalid workspace data" }, { status: 400 });
+    if (!isWorkspaceData(workspace)) return NextResponse.json({ error: "Invalid workspace data" }, { status: 400 });
     const sql = await ensureSchema();
     const serialized = JSON.stringify(workspace);
     const rows = await sql`
