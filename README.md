@@ -27,7 +27,7 @@ OWNER_EMAIL=you@example.com
 PASSKEY_RP_ID=localhost
 ```
 
-For production, set `BETTER_AUTH_URL=https://4twenty.dev` and `PASSKEY_RP_ID=4twenty.dev`. Passkeys are domain-bound, so enroll the permanent production passkeys only after `4twenty.dev` is connected and serving HTTPS. All workspace, project-intelligence, import, and push-management APIs require the authenticated owner session; the reminder cron retains its separate bearer-secret protection.
+For production, set `BETTER_AUTH_URL=https://www.4twenty.dev` and `PASSKEY_RP_ID=4twenty.dev`. Vercel canonicalizes the apex domain to `www`; the parent-domain relying-party ID keeps credentials scoped to 4TWENTY.DEV. Passkeys are domain-bound, so enroll the permanent production passkeys only after the custom domain is serving HTTPS. All workspace, project-intelligence, import, and push-management APIs require the authenticated owner session; the reminder cron retains its separate bearer-secret protection.
 
 ## Edit projects
 
