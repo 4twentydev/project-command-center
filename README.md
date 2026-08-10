@@ -72,6 +72,8 @@ The command palette provides universal search across projects, tasks, inbox capt
 
 The public studio site includes clearly staged case studies for WORK//CTRL, SignForge, and Shop Inventory. Its contact form validates on the server, uses a honeypot and hashed-IP rate limit, and stores inquiries in the Neon `contact_inquiries` table without exposing database credentials to the browser.
 
+The homepage and `/about` route use the verified founder profile in `lib/founder.ts`. Person and Organization structured data are rendered on the About page without employer names, credentials, or unverified claims. The approved local founder photograph and its replacement requirements are documented in `docs/FOUNDER_PHOTO.md`; `FounderPortrait` retains a neutral fallback if that asset is ever missing.
+
 Homepage engagement pricing is maintained in `lib/engagements.ts`. The three public planning offers—Workflow Audit, Workflow Sprint, and Custom Operations System—reuse that catalog for display copy, CTA destinations, contact-form preselection, and Workflow Audit lead metadata. The published amounts are planning ranges rather than automatic quotes; update the catalog to revise pricing or included work.
 
 Authenticated owners can review and manage those inquiries at `/dashboard/leads`, move them through new/contacted/archived states, and launch a pre-addressed email reply. Optional Resend notifications use `RESEND_API_KEY`, `CONTACT_NOTIFICATION_EMAIL`, and `CONTACT_FROM_EMAIL`; inquiry storage succeeds even when email delivery is not configured or temporarily fails.
