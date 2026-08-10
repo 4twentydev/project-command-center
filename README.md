@@ -41,6 +41,8 @@ Captured ideas enter a dedicated inbox for later triage. Inbox items can be prom
 
 Each project card opens a dedicated workspace with its operational brief, momentum, task completion, linked task management, next action, stack, repository metadata, and deployment health.
 
+Connected project discovery imports selected GitHub repositories, matches same-name Vercel deployments, skips already tracked repositories, and creates editable WORK//CTRL project cards. Open it from the command palette.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence
