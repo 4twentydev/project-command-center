@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.4twenty.dev" }],
+        destination: "https://4twenty.dev/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
