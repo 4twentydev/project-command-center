@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Activity, ArrowUpRight, CheckCircle2, CircleDot, Clock3, Cloud, Command, ExternalLink,
+  Activity, AlertCircle, ArrowUpRight, CalendarDays, CheckCircle2, CircleDot, Clock3, Cloud, Command, ExternalLink,
   GitCommitHorizontal, Github, Grid2X2, LayoutDashboard, Lightbulb, ListChecks, ListFilter, Pencil,
   Plus, RefreshCw, Rocket, Search, Sparkles, Square, TerminalSquare, Trash2, X,
 } from "lucide-react";
 import type { Project, ProjectKind, ProjectStatus } from "@/lib/projects";
-import { emptyWorkspace, workspaceStorageKey, type Workspace } from "@/lib/workspace";
+import { emptyWorkspace, workspaceStorageKey, type Task, type Workspace } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ const accentStyles = {
 
 type ComposerMode = "project" | "task" | "idea" | null;
 type SyncState = "loading" | "saved" | "saving" | "offline";
+type TaskView = "Today" | "Next" | "All";
 type ProjectIntelligence = {
   github: null | { available: boolean; private?: boolean; defaultBranch?: string; openIssues?: number; pushedAt?: string; latestCommit?: null | { sha: string; message: string; url: string; date?: string } };
   vercel: null | { reachable: boolean; state: string | null; target?: string | null; createdAt?: number; url: string; checkedAt: string };
@@ -82,13 +83,15 @@ function Composer({ mode, projects, onClose, onProject, onTask, onIdea }: {
   projects: Project[];
   onClose: () => void;
   onProject: (project: Project) => void;
-  onTask: (title: string, projectId?: string) => void;
+  onTask: (title: string, projectId?: string, priority?: Task["priority"], dueDate?: string) => void;
   onIdea: (idea: string) => void;
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [kind, setKind] = useState<ProjectKind>("Software");
   const [projectId, setProjectId] = useState("");
+  const [priority, setPriority] = useState<Task["priority"]>("Medium");
+  const [dueDate, setDueDate] = useState("");
   const labels = { project: "New project", task: "New task", idea: "Capture idea" };
 
   function submit(event: React.FormEvent) {
@@ -102,7 +105,7 @@ function Composer({ mode, projects, onClose, onProject, onTask, onIdea }: {
         stack: [], updatedAt: now.toISOString(), updatedLabel: "Just now",
         note: "Define the next useful action.", progress: 0, accent: "cyan",
       });
-    } else if (mode === "task") onTask(title.trim(), projectId || undefined);
+    } else if (mode === "task") onTask(title.trim(), projectId || undefined, priority, dueDate || undefined);
     else onIdea(title.trim());
     onClose();
   }
@@ -116,12 +119,18 @@ function Composer({ mode, projects, onClose, onProject, onTask, onIdea }: {
             <label className="block text-xs font-medium">{mode === "idea" ? "Idea" : mode === "task" ? "Task" : "Project name"}<input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/15" placeholder={mode === "project" ? "e.g. Shop scheduler" : "What needs attention?"} /></label>
             {mode === "project" && <><label className="block text-xs font-medium">Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} className="mt-2 min-h-24 w-full resize-none rounded-md border border-border bg-background p-3 text-sm outline-none focus:border-primary/50" placeholder="What is this project for?" /></label><label className="block text-xs font-medium">Workspace<select value={kind} onChange={(event) => setKind(event.target.value as ProjectKind)} className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm">{["Software", "CNC", "Business", "Experiment"].map((item) => <option key={item}>{item}</option>)}</select></label></>}
             {mode === "task" && projects.length > 0 && <label className="block text-xs font-medium">Project (optional)<select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm"><option value="">General</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>}
+            {mode === "task" && <div className="grid gap-4 sm:grid-cols-2"><label className="block text-xs font-medium">Priority<select value={priority} onChange={(event) => setPriority(event.target.value as Task["priority"])} className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm">{["Low", "Medium", "High"].map((item) => <option key={item}>{item}</option>)}</select></label><label className="block text-xs font-medium">Due date<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm" /></label></div>}
             <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit"><Plus />Save</Button></div>
           </form>
         </CardContent>
       </Card>
     </div>
   );
+}
+
+function TaskEditor({ task, projects, onClose, onSave }: { task: Task; projects: Project[]; onClose: () => void; onSave: (task: Task) => void }) {
+  const [draft, setDraft] = useState(task);
+  return <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><Card className="w-full max-w-lg shadow-2xl"><CardContent className="p-6"><div className="mb-6 flex items-center justify-between"><div><div className="font-mono text-[9px] uppercase tracking-[0.22em] text-primary">Task controls</div><h2 className="mt-1 text-xl font-semibold">Edit task</h2></div><Button variant="ghost" size="icon" onClick={onClose}><X /></Button></div><form className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (!draft.title.trim()) return; onSave({ ...draft, title: draft.title.trim() }); onClose(); }}><label className="block text-xs font-medium">Task<input autoFocus value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary/50" /></label><label className="block text-xs font-medium">Notes<textarea value={draft.notes ?? ""} onChange={(event) => setDraft({ ...draft, notes: event.target.value || undefined })} className="mt-2 min-h-20 w-full resize-none rounded-md border border-border bg-background p-3 text-sm outline-none" placeholder="Context, acceptance criteria, or useful details" /></label><div className="grid gap-4 sm:grid-cols-3"><label className="block text-xs font-medium">Project<select value={draft.projectId ?? ""} onChange={(event) => setDraft({ ...draft, projectId: event.target.value || undefined })} className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm"><option value="">General</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label className="block text-xs font-medium">Priority<select value={draft.priority ?? "Medium"} onChange={(event) => setDraft({ ...draft, priority: event.target.value as Task["priority"] })} className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm">{["Low", "Medium", "High"].map((item) => <option key={item}>{item}</option>)}</select></label><label className="block text-xs font-medium">Due<input type="date" value={draft.dueDate ?? ""} onChange={(event) => setDraft({ ...draft, dueDate: event.target.value || undefined })} className="mt-2 h-10 w-full rounded-md border border-border bg-background px-3 text-sm" /></label></div><div className="flex justify-end gap-2 pt-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit"><CheckCircle2 />Save task</Button></div></form></CardContent></Card></div>;
 }
 
 function ProjectCard({ project, intelligence, onDelete, onEdit }: { project: Project; intelligence?: ProjectIntelligence; onDelete: () => void; onEdit: () => void }) {
@@ -151,6 +160,8 @@ export function Dashboard() {
   const [kind, setKind] = useState<"All" | ProjectKind>("All");
   const [composer, setComposer] = useState<ComposerMode>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [taskView, setTaskView] = useState<TaskView>("Today");
   const [syncState, setSyncState] = useState<SyncState>("loading");
   const [intelligence, setIntelligence] = useState<Record<string, ProjectIntelligence>>({});
   const [refreshing, setRefreshing] = useState(false);
@@ -228,20 +239,30 @@ export function Dashboard() {
     return { id: crypto.randomUUID(), message, createdAt: new Date().toISOString() };
   }
   function addProject(project: Project) { setWorkspace((current) => ({ ...current, projects: [project, ...current.projects], activity: [record(`Created project · ${project.name}`), ...current.activity].slice(0, 30) })); }
-  function addTask(title: string, projectId?: string) { setWorkspace((current) => ({ ...current, tasks: [{ id: crypto.randomUUID(), title, projectId, done: false, createdAt: new Date().toISOString() }, ...current.tasks], activity: [record(`Added task · ${title}`), ...current.activity].slice(0, 30) })); }
+  function addTask(title: string, projectId?: string, priority: Task["priority"] = "Medium", dueDate?: string) { setWorkspace((current) => ({ ...current, tasks: [{ id: crypto.randomUUID(), title, projectId, priority, dueDate, done: false, createdAt: new Date().toISOString() }, ...current.tasks], activity: [record(`Added task · ${title}`), ...current.activity].slice(0, 30) })); }
   function addIdea(idea: string) { addTask(`Idea: ${idea}`); setWorkspace((current) => ({ ...current, activity: [record(`Captured idea · ${idea}`), ...current.activity].slice(0, 30) })); }
   function toggleTask(id: string) { setWorkspace((current) => { const task = current.tasks.find((item) => item.id === id); return { ...current, tasks: current.tasks.map((item) => item.id === id ? { ...item, done: !item.done } : item), activity: task ? [record(`${task.done ? "Reopened" : "Completed"} task · ${task.title}`), ...current.activity].slice(0, 30) : current.activity }; }); }
   function deleteProject(id: string) { setWorkspace((current) => { const project = current.projects.find((item) => item.id === id); return { ...current, projects: current.projects.filter((item) => item.id !== id), tasks: current.tasks.map((task) => task.projectId === id ? { ...task, projectId: undefined } : task), activity: project ? [record(`Removed project · ${project.name}`), ...current.activity].slice(0, 30) : current.activity }; }); }
   function updateProject(project: Project) { setWorkspace((current) => ({ ...current, projects: current.projects.map((item) => item.id === project.id ? project : item), activity: [record(`Updated project · ${project.name}`), ...current.activity].slice(0, 30) })); }
+  function updateTask(task: Task) { setWorkspace((current) => ({ ...current, tasks: current.tasks.map((item) => item.id === task.id ? task : item), activity: [record(`Updated task · ${task.title}`), ...current.activity].slice(0, 30) })); }
+  function deleteTask(id: string) { setWorkspace((current) => { const task = current.tasks.find((item) => item.id === id); return { ...current, tasks: current.tasks.filter((item) => item.id !== id), activity: task ? [record(`Removed task · ${task.title}`), ...current.activity].slice(0, 30) : current.activity }; }); }
 
   const filtered = useMemo(() => workspace.projects.filter((project) => (kind === "All" || project.kind === kind) && `${project.name} ${project.description} ${project.stack.join(" ")}`.toLowerCase().includes(query.toLowerCase())), [kind, query, workspace.projects]);
   const openTasks = workspace.tasks.filter((task) => !task.done).length;
+  const today = new Date().toISOString().slice(0, 10);
+  const visibleTasks = useMemo(() => workspace.tasks.filter((task) => {
+    if (taskView === "All") return true;
+    if (taskView === "Today") return !task.done && Boolean(task.dueDate && task.dueDate <= today);
+    return !task.done && (!task.dueDate || task.dueDate > today);
+  }).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority ?? "Medium"] - { High: 0, Medium: 1, Low: 2 }[b.priority ?? "Medium"])), [taskView, today, workspace.tasks]);
+  const taskGroups = useMemo(() => visibleTasks.reduce<Record<string, Task[]>>((groups, task) => { const name = workspace.projects.find((project) => project.id === task.projectId)?.name ?? "General"; (groups[name] ??= []).push(task); return groups; }, {}), [visibleTasks, workspace.projects]);
   const kinds: Array<"All" | ProjectKind> = ["All", "Software", "CNC", "Business", "Experiment"];
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       {composer && <Composer mode={composer} projects={workspace.projects} onClose={() => setComposer(null)} onProject={addProject} onTask={addTask} onIdea={addIdea} />}
       {editingProject && <ProjectEditor project={editingProject} onClose={() => setEditingProject(null)} onSave={updateProject} />}
+      {editingTask && <TaskEditor task={editingTask} projects={workspace.projects} onClose={() => setEditingTask(null)} onSave={updateTask} />}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_75%_-10%,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_32%)]" />
       <div className="relative mx-auto flex min-h-screen max-w-[1600px]">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/70 bg-card/30 p-4 backdrop-blur lg:flex">
@@ -260,7 +281,7 @@ export function Dashboard() {
           </section>
 
           <section className="mt-10 grid gap-4 xl:grid-cols-[1.15fr_1fr]">
-            <Card id="tasks"><CardContent className="p-5"><div className="mb-5 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Tasks</h2><p className="mt-1 text-xs text-muted-foreground">Small, concrete next actions.</p></div><Button size="sm" variant="outline" onClick={() => setComposer("task")}><Plus />Add task</Button></div>{workspace.tasks.length ? <div className="space-y-1">{workspace.tasks.map((task) => <button key={task.id} onClick={() => toggleTask(task.id)} className="flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left hover:bg-accent/50">{task.done ? <CheckCircle2 className="size-4 shrink-0 text-emerald-400" /> : <Square className="size-4 shrink-0 text-muted-foreground" />}<span className={cn("min-w-0 flex-1 truncate text-xs", task.done && "text-muted-foreground line-through")}>{task.title}</span>{task.projectId && <Badge className="border-border bg-secondary text-muted-foreground">{workspace.projects.find((project) => project.id === task.projectId)?.name ?? "General"}</Badge>}</button>)}</div> : <div className="grid min-h-32 place-items-center text-center text-xs text-muted-foreground">No tasks yet. Add one useful next action.</div>}</CardContent></Card>
+            <Card id="tasks"><CardContent className="p-5"><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Tasks</h2><p className="mt-1 text-xs text-muted-foreground">Small, concrete next actions.</p></div><Button size="sm" variant="outline" onClick={() => setComposer("task")}><Plus />Add task</Button></div><div className="mb-4 flex gap-1 rounded-lg border border-border bg-background/50 p-1">{(["Today", "Next", "All"] as TaskView[]).map((view) => <button key={view} onClick={() => setTaskView(view)} className={cn("flex-1 rounded-md px-3 py-1.5 text-xs transition", taskView === view ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent")}>{view}</button>)}</div>{visibleTasks.length ? <div className="space-y-5">{Object.entries(taskGroups).map(([group, tasks]) => <div key={group}><div className="mb-1 px-2 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{group}</div><div className="space-y-1">{tasks.map((task) => { const overdue = !task.done && Boolean(task.dueDate && task.dueDate < today); return <div key={task.id} className="group/task flex items-center gap-2 rounded-lg px-2 py-2.5 hover:bg-accent/50"><button onClick={() => toggleTask(task.id)} aria-label={task.done ? "Reopen task" : "Complete task"}>{task.done ? <CheckCircle2 className="size-4 shrink-0 text-emerald-400" /> : <Square className="size-4 shrink-0 text-muted-foreground" />}</button><div className="min-w-0 flex-1"><div className={cn("truncate text-xs", task.done && "text-muted-foreground line-through")}>{task.title}</div>{task.notes && <div className="mt-0.5 truncate text-[10px] text-muted-foreground">{task.notes}</div>}</div><Badge className={cn("border-border", task.priority === "High" ? "border-red-500/20 bg-red-500/10 text-red-500" : task.priority === "Low" ? "bg-secondary text-muted-foreground" : "border-amber-500/20 bg-amber-500/10 text-amber-500")}>{task.priority ?? "Medium"}</Badge>{task.dueDate && <span className={cn("flex items-center gap-1 font-mono text-[9px]", overdue ? "text-red-500" : "text-muted-foreground")}>{overdue ? <AlertCircle className="size-3" /> : <CalendarDays className="size-3" />}{task.dueDate.slice(5)}</span>}<Button size="icon" variant="ghost" className="size-7 opacity-0 group-hover/task:opacity-100" onClick={() => setEditingTask(task)}><Pencil /></Button><Button size="icon" variant="ghost" className="size-7 opacity-0 group-hover/task:opacity-100" onClick={() => deleteTask(task.id)}><Trash2 /></Button></div>})}</div></div>)}</div> : <div className="grid min-h-32 place-items-center text-center text-xs text-muted-foreground">{taskView === "Today" ? "Nothing due today. You're clear." : taskView === "Next" ? "No upcoming tasks." : "No tasks yet. Add one useful next action."}</div>}</CardContent></Card>
             <Card><CardContent className="p-5"><div className="mb-5 flex items-center gap-2"><Sparkles className="size-4 text-violet-400" /><h2 className="text-sm font-semibold">Quick launch</h2></div><div className="grid grid-cols-2 gap-2"><Button variant="outline" className="h-auto justify-start p-3" asChild><a href="https://github.com/4twentydev" target="_blank" rel="noreferrer"><Github />GitHub <ExternalLink className="ml-auto size-3" /></a></Button><Button variant="outline" className="h-auto justify-start p-3" asChild><a href="https://vercel.com/4twentydev" target="_blank" rel="noreferrer"><Rocket />Vercel <ExternalLink className="ml-auto size-3" /></a></Button><Button variant="outline" className="h-auto justify-start p-3" onClick={() => setComposer("task")}><ListChecks />New task</Button><Button variant="outline" className="h-auto justify-start p-3" onClick={() => setComposer("idea")}><Lightbulb />Capture idea</Button></div></CardContent></Card>
           </section>
 

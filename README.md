@@ -19,6 +19,8 @@ Projects, tasks, captured ideas, and activity are persisted to Neon Postgres thr
 
 Projects can be edited directly from their card, including status, workspace, stack, momentum, next action, repository, and deployment links.
 
+Tasks support priorities, due dates, notes, project grouping, editing, deletion, completion, overdue signals, and focused Today, Next, and All views.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence

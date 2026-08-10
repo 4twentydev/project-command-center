@@ -4,6 +4,9 @@ export type Task = {
   id: string;
   title: string;
   projectId?: string;
+  priority?: "Low" | "Medium" | "High";
+  dueDate?: string;
+  notes?: string;
   done: boolean;
   createdAt: string;
 };
