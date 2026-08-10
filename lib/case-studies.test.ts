@@ -1,10 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import { caseStudies, getAdjacentCaseStudies, getCaseStudy } from "@/lib/case-studies";
+import { projectStatusDefinitions, projectStatuses } from "@/lib/project-status";
 
 describe("case study data", () => {
   test("defines the initial selected-work routes", () => {
     expect(caseStudies.map((study) => study.slug)).toEqual(["work-control", "signforge", "shop-inventory"]);
     expect(caseStudies.every((study) => Boolean(getCaseStudy(study.slug)))).toBeTrue();
+  });
+
+  test("assigns an explicit, supported status to every current project", () => {
+    expect(Object.fromEntries(caseStudies.map((study) => [study.title, study.status]))).toEqual({
+      "WORK//CTRL": "Live system",
+      SignForge: "Active concept",
+      "Shop Inventory": "Working prototype",
+    });
+    expect(projectStatuses).toEqual(["Live system", "Working prototype", "Active concept", "Case study"]);
+    expect(caseStudies.every((study) => Boolean(projectStatusDefinitions[study.status]))).toBeTrue();
+    expect(caseStudies.some((study) => study.status === "Case study")).toBeFalse();
   });
 
   test("provides every required case-study section", () => {

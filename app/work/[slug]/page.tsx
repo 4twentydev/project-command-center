@@ -16,12 +16,13 @@ export async function generateMetadata({ params }: CaseStudyPageProps): Promise<
   const study = getCaseStudy(slug);
   if (!study) return {};
   const canonical = `/work/${study.slug}`;
+  const description = `${study.status}: ${study.summary}`;
   return {
-    title: `${study.title} case study`,
-    description: study.summary,
+    title: `${study.title} project profile`,
+    description,
     alternates: { canonical },
-    openGraph: { title: `${study.title} case study · 4TWENTY.DEV`, description: study.summary, type: "article", url: canonical, siteName: "4TWENTY.DEV", images: [{ url: `${canonical}/opengraph-image`, width: 1200, height: 630, alt: `${study.title} case study` }] },
-    twitter: { card: "summary_large_image", title: `${study.title} case study · 4TWENTY.DEV`, description: study.summary, images: [`${canonical}/opengraph-image`] },
+    openGraph: { title: `${study.title} · ${study.status} · 4TWENTY.DEV`, description, type: "article", url: canonical, siteName: "4TWENTY.DEV", images: [{ url: `${canonical}/opengraph-image`, width: 1200, height: 630, alt: `${study.title} project profile — ${study.status}` }] },
+    twitter: { card: "summary_large_image", title: `${study.title} · ${study.status} · 4TWENTY.DEV`, description, images: [`${canonical}/opengraph-image`] },
   };
 }
 

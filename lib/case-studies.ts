@@ -1,9 +1,9 @@
-export type CaseStudyStatus = "Live system" | "Prototype" | "Active concept";
+import type { ProjectStatus } from "@/lib/project-status";
 
 export type CaseStudy = {
   slug: string;
   number: string;
-  status: CaseStudyStatus;
+  status: ProjectStatus;
   title: string;
   kicker: string;
   summary: string;
@@ -28,7 +28,7 @@ export const caseStudies: CaseStudy[] = [
     status: "Live system",
     title: "WORK//CTRL",
     kicker: "Personal operations platform",
-    summary: "A secure command center that brings projects, tasks, GitHub activity, deployment health, planning, notes, and reminders into one operating view.",
+    summary: "An implemented, currently operational command center that brings projects, tasks, GitHub activity, deployment health, planning, notes, and reminders into one operating view.",
     signal: "From scattered tools to one daily control surface",
     icon: "gauge",
     intendedFor: "An independent builder managing software, CNC, business, and experimental work across several tools and operating rhythms.",
@@ -65,10 +65,10 @@ export const caseStudies: CaseStudy[] = [
   {
     slug: "shop-inventory",
     number: "03",
-    status: "Prototype",
+    status: "Working prototype",
     title: "Shop Inventory",
     kicker: "Operational visibility",
-    summary: "A lightweight inventory and replenishment concept designed to answer what is on hand, what is committed, and what needs attention without spreadsheet archaeology.",
+    summary: "A lightweight working prototype for testing how a shop can see what is on hand, what is committed, and what needs attention without spreadsheet archaeology.",
     signal: "Clear next actions from real operating data",
     icon: "layers",
     intendedFor: "Small manufacturers and fabrication shops that need practical stock visibility without adopting an oversized warehouse or ERP platform.",
