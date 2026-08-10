@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
-export function LoginPanel() {
+export function LoginPanel({ nextPath = "/dashboard" }: { nextPath?: "/dashboard" | "/account" }) {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "setup">("login");
   const [email, setEmail] = useState("");
@@ -18,7 +18,7 @@ export function LoginPanel() {
   async function signInWithPasskey() {
     setBusy(true); setMessage("");
     const { error } = await authClient.signIn.passkey({
-      fetchOptions: { onSuccess: () => router.push("/dashboard") },
+      fetchOptions: { onSuccess: () => router.push(nextPath) },
     });
     if (error) setMessage(error.message ?? "The passkey could not be verified.");
     setBusy(false);
@@ -33,7 +33,7 @@ export function LoginPanel() {
     } else {
       const { error } = await authClient.signIn.email({ email, password });
       if (error) setMessage(error.message ?? "Those recovery credentials were not accepted.");
-      else router.push("/dashboard");
+      else router.push(nextPath);
     }
     setBusy(false);
   }
