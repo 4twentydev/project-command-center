@@ -17,11 +17,21 @@ export type ActivityItem = {
   createdAt: string;
 };
 
+export type WeeklyReview = {
+  id: string;
+  wins: string;
+  blockers: string;
+  lessons: string;
+  nextPriorities: string;
+  createdAt: string;
+};
+
 export type Workspace = {
   projects: Project[];
   tasks: Task[];
   activity: ActivityItem[];
+  reviews?: WeeklyReview[];
 };
 
-export const emptyWorkspace: Workspace = { projects: [], tasks: [], activity: [] };
+export const emptyWorkspace: Workspace = { projects: [], tasks: [], activity: [], reviews: [] };
 export const workspaceStorageKey = "work-ctrl-workspace-v1";
