@@ -29,5 +29,14 @@ await sql`CREATE TABLE IF NOT EXISTS conversion_events (
 )`;
 await sql`CREATE INDEX IF NOT EXISTS conversion_events_created_at_idx ON conversion_events (created_at DESC)`;
 await sql`CREATE INDEX IF NOT EXISTS conversion_events_visitor_hash_idx ON conversion_events (visitor_hash, created_at DESC)`;
+await sql`CREATE TABLE IF NOT EXISTS consultations (
+  id TEXT PRIMARY KEY, lead_id BIGINT REFERENCES contact_inquiries(id) ON DELETE SET NULL,
+  service_slug TEXT NOT NULL, client_name TEXT NOT NULL DEFAULT '', business TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '', consultation_date DATE, status TEXT NOT NULL DEFAULT 'draft',
+  responses JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)`;
+await sql`CREATE INDEX IF NOT EXISTS consultations_updated_at_idx ON consultations (updated_at DESC)`;
+await sql`CREATE INDEX IF NOT EXISTS consultations_lead_id_idx ON consultations (lead_id) WHERE lead_id IS NOT NULL`;
 
 console.log("Application database migration completed.");

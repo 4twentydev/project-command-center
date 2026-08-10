@@ -37,6 +37,13 @@ export async function listContactInquiries(status?: LeadStatus) {
   return rows.map(mapInquiry) satisfies ContactInquiry[];
 }
 
+export async function getContactInquiry(id: number) {
+  if (!Number.isSafeInteger(id) || id < 1) return null;
+  const sql = await contactDatabase();
+  const rows = await sql`SELECT * FROM contact_inquiries WHERE id = ${id} LIMIT 1`;
+  return rows.length ? mapInquiry(rows[0]) : null;
+}
+
 export async function countDueFollowUps() {
   const sql = await contactDatabase();
   const rows = await sql`SELECT COUNT(*)::int AS count FROM contact_inquiries WHERE (follow_up_at AT TIME ZONE 'America/Denver')::date <= (NOW() AT TIME ZONE 'America/Denver')::date AND status NOT IN ('won', 'lost', 'archived')`;
