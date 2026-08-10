@@ -19,5 +19,15 @@ await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS converted_proje
 await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS notification_id TEXT`;
 await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS notification_status TEXT NOT NULL DEFAULT 'not_configured'`;
 await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`;
+await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS intake JSONB`;
+await sql`ALTER TABLE contact_inquiries ADD COLUMN IF NOT EXISTS submission_key TEXT`;
+await sql`CREATE UNIQUE INDEX IF NOT EXISTS contact_inquiries_submission_key_idx ON contact_inquiries (submission_key) WHERE submission_key IS NOT NULL`;
+await sql`CREATE TABLE IF NOT EXISTS conversion_events (
+  id BIGSERIAL PRIMARY KEY, event_name TEXT NOT NULL, path TEXT NOT NULL,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb, visitor_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)`;
+await sql`CREATE INDEX IF NOT EXISTS conversion_events_created_at_idx ON conversion_events (created_at DESC)`;
+await sql`CREATE INDEX IF NOT EXISTS conversion_events_visitor_hash_idx ON conversion_events (visitor_hash, created_at DESC)`;
 
 console.log("Application database migration completed.");

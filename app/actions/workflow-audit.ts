@@ -1,0 +1,64 @@
+"use server";
+
+import { headers } from "next/headers";
+import { after } from "next/server";
+import { contactDatabase } from "@/lib/contact-inquiries";
+import { recordConversionEvent } from "@/lib/conversion-analytics";
+import { sendLeadNotification } from "@/lib/lead-notification";
+import { hashedRequestAddress } from "@/lib/request-privacy";
+import { workflowAuditIntake, workflowAuditPayload, type WorkflowAuditErrors } from "@/lib/workflow-audit";
+import { processWorkflowAudit } from "@/lib/workflow-audit-submission";
+
+export type WorkflowAuditState = {
+  status: "idle" | "success" | "duplicate" | "error";
+  message: string;
+  errors?: WorkflowAuditErrors;
+};
+
+export async function submitWorkflowAudit(_: WorkflowAuditState, formData: FormData): Promise<WorkflowAuditState> {
+  const payload = workflowAuditPayload(formData);
+  const requestHeaders = await headers();
+  const ipHash = hashedRequestAddress(requestHeaders, "workflow-audit");
+  const visitorHash = hashedRequestAddress(requestHeaders, "conversion-analytics", true);
+  let sql: Awaited<ReturnType<typeof contactDatabase>>;
+  try {
+    sql = await contactDatabase();
+  } catch {
+    return { status: "error", message: "The secure intake channel is temporarily unavailable. Email hello@4twenty.dev instead." };
+  }
+
+  const result = await processWorkflowAudit(payload, {
+    countRecent: async () => {
+      const rows = await sql`SELECT COUNT(*)::int AS count FROM contact_inquiries WHERE ip_hash = ${ipHash} AND project_type = 'Workflow audit' AND created_at > NOW() - INTERVAL '1 hour'`;
+      return Number(rows[0]?.count ?? 0);
+    },
+    insert: async (values, submissionKey) => {
+      const structuredIntake = workflowAuditIntake(values);
+      const rows = await sql`INSERT INTO contact_inquiries (name, email, company, project_type, message, ip_hash, intake, submission_key) VALUES (${values.name}, ${values.email}, ${values.business}, 'Workflow audit', ${values.frustratingWorkflow}, ${ipHash}, ${JSON.stringify(structuredIntake)}::jsonb, ${submissionKey}) ON CONFLICT DO NOTHING RETURNING id`;
+      return rows[0]?.id ? Number(rows[0].id) : null;
+    },
+  });
+
+  if (result.status === "spam") return { status: "success", message: "Thanks—your request is in the review queue." };
+  if (result.status === "invalid") {
+    after(() => recordConversionEvent({ event: "workflow_audit_validation_error", path: "/workflow-audit", visitorHash, metadata: { fields: Object.keys(result.errors) } }).catch(() => undefined));
+    return { status: "error", message: "Check the highlighted fields and try again.", errors: result.errors };
+  }
+  if (result.status === "rate_limited") return { status: "error", message: "Several audit requests have come from this connection recently. Try again later or email hello@4twenty.dev." };
+  if (result.status === "duplicate") return { status: "duplicate", message: "This audit request is already in the queue. There is no need to submit it again." };
+  if (result.status === "server_error") return { status: "error", message: "The secure intake channel is temporarily unavailable. Email hello@4twenty.dev instead." };
+
+  after(async () => {
+    const notificationTask = (async () => {
+      try {
+        const notification = await sendLeadNotification({ id: result.id, name: result.values.name, email: result.values.email, company: result.values.business, projectType: "Workflow audit", budget: "Scope and fee to be confirmed", message: result.values.frustratingWorkflow, intake: workflowAuditIntake(result.values) });
+        await sql`UPDATE contact_inquiries SET notification_id = ${notification.sent ? notification.id : null}, notification_status = ${notification.sent ? "sent" : "not_configured"}, updated_at = NOW() WHERE id = ${result.id}`;
+      } catch (error) {
+        await sql`UPDATE contact_inquiries SET notification_status = 'failed', updated_at = NOW() WHERE id = ${result.id}`;
+        console.error("Workflow audit notification failed", error instanceof Error ? error.message : "unknown error");
+      }
+    })();
+    await Promise.allSettled([notificationTask, recordConversionEvent({ event: "workflow_audit_submission_success", path: "/workflow-audit", visitorHash })]);
+  });
+  return { status: "success", message: "Your workflow audit request is in. Brandon will review the operating problem and follow up directly with fit, scope, fee, and the next available step." };
+}

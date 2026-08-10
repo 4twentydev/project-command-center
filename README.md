@@ -76,6 +76,28 @@ Authenticated owners can review and manage those inquiries at `/dashboard/leads`
 
 The client pipeline supports qualification and proposal stages, private notes, follow-up dates, lead-to-project conversion, reusable proposal drafting, and verified Resend delivery events through `/api/webhooks/resend` using `RESEND_WEBHOOK_SECRET`.
 
+## Workflow Audit conversion path
+
+The public `/workflow-audit` route presents a focused paid operational review and stores qualified intake requests in the existing owner-only lead pipeline. Run `bun run db:migrate` after pulling this feature to add structured audit intake, daily duplicate protection, and the first-party `conversion_events` table.
+
+Workflow Audit submissions use the same privacy and abuse controls as the main contact channel: server-side field validation, a hidden honeypot, a salted hashed-IP limit, no client-side database credentials, and no advertising identifier. Exact duplicate payloads are ignored for the remainder of the UTC day. Analytics are first-party, cookieless, limited to an event allowlist, stripped of field values, keyed with a daily-rotating request hash, and automatically retained for no more than 90 days.
+
+Optional configuration:
+
+```env
+# HTTPS scheduling link shown after intake and in the page hero.
+# No scheduling vendor is selected by the application.
+WORKFLOW_AUDIT_BOOKING_URL=https://your-configured-scheduler.example/audit
+
+# Dedicated random salt for daily analytics request hashes.
+# Falls back to CONTACT_HASH_SALT or BETTER_AUTH_SECRET when omitted.
+ANALYTICS_HASH_SALT=<random secret>
+```
+
+No payment processing is included because the project has no supported payment architecture. The page clearly states that fit, scope, fee, and timing are confirmed directly before booking. If `WORKFLOW_AUDIT_BOOKING_URL` is absent or invalid, the confirmation state falls back to direct email follow-up.
+
+Tracked conversion events are: landing-page view, form start, validation error (field name only), successful server submission, and configured booking-link click. They are written to Neon and are not sent to Google Analytics, Meta, or another external analytics service.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Application-level owner authentication protects the dashboard and every writable workspace API.
 
 ## Live project intelligence
@@ -92,7 +114,7 @@ vercel
 vercel --prod
 ```
 
-No environment variables are required for this static version. The expected production URL is `https://project-command-center.vercel.app`. Connect `4twentydev/project-command-center` in Vercel for automatic preview and production deployments.
+The public pages render without external scheduling or payment services, but database-backed forms and private WORK//CTRL features require the environment variables documented above. The expected production domain is `https://www.4twenty.dev`. Connect `4twentydev/project-command-center` in Vercel for automatic preview and production deployments.
 
 ## Structure
 

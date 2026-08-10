@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import type { WorkflowAuditIntake } from "@/lib/workflow-audit";
 
 export type LeadStatus = "new" | "contacted" | "qualified" | "proposal" | "won" | "lost" | "archived";
 export type NotificationStatus = "not_configured" | "queued" | "sent" | "delivered" | "bounced" | "complained" | "failed";
@@ -17,6 +18,7 @@ export type ContactInquiry = {
   convertedProjectId: string | null;
   notificationId: string | null;
   notificationStatus: NotificationStatus;
+  intake: WorkflowAuditIntake | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -59,6 +61,7 @@ function mapInquiry(row: Record<string, unknown>): ContactInquiry {
     convertedProjectId: row.converted_project_id ? String(row.converted_project_id) : null,
     notificationId: row.notification_id ? String(row.notification_id) : null,
     notificationStatus: String(row.notification_status ?? "not_configured") as NotificationStatus,
+    intake: row.intake && typeof row.intake === "object" ? row.intake as WorkflowAuditIntake : null,
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.created_at)).toISOString(),
   };
