@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Activity, AlertCircle, Archive, ArrowRightCircle, ArrowUpRight, BarChart3, Bell, BellOff, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, CircleDot, Clock3, Cloud, Command, DatabaseBackup, Download, ExternalLink, Flame, Inbox,
+  Activity, AlertCircle, Archive, ArrowRightCircle, ArrowUpRight, BarChart3, Bell, BellOff, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, CircleDot, Clock3, Cloud, CodePullRequest, Command, DatabaseBackup, Download, ExternalLink, Flame, Inbox,
   CornerDownLeft, GitCommitHorizontal, Github, Grid2X2, Keyboard, LayoutDashboard, Lightbulb, ListChecks, ListFilter, Pencil,
-  BookOpenCheck, DownloadCloud, Gauge, Plus, RefreshCw, Rocket, RotateCcw, Search, Send, Settings, Sparkles, Square, Target, TerminalSquare, Trash2, TrendingUp, Upload, X,
+  BookOpenCheck, CircleDotDashed, DownloadCloud, Gauge, Plus, RefreshCw, Rocket, RotateCcw, Search, Send, Settings, Sparkles, Square, Target, TerminalSquare, Trash2, TrendingUp, Upload, X,
 } from "lucide-react";
 import type { Project, ProjectKind, ProjectStatus } from "@/lib/projects";
 import { defaultWorkspaceSettings, emptyWorkspace, workspaceStorageKey, type InboxItem, type Task, type WeeklyReview, type Workspace, type WorkspaceSettings } from "@/lib/workspace";
@@ -37,7 +37,7 @@ type Confirmation = { title: string; message: string; actionLabel: string; onCon
 type UndoState = { label: string; workspace: Workspace };
 
 type ProjectIntelligence = {
-  github: null | { available: boolean; private?: boolean; defaultBranch?: string; openIssues?: number; pushedAt?: string; latestCommit?: null | { sha: string; message: string; url: string; date?: string } };
+  github: null | { available: boolean; private?: boolean; defaultBranch?: string; openIssues?: number; pushedAt?: string; latestCommit?: null | { sha: string; message: string; url: string; date?: string }; pullRequests?: Array<{ number: number; title: string; url: string; draft: boolean; updatedAt: string }>; issues?: Array<{ number: number; title: string; url: string; updatedAt: string }> };
   vercel: null | { reachable: boolean; state: string | null; target?: string | null; createdAt?: number; url: string; checkedAt: string };
   fetchedAt: string;
 };
@@ -125,6 +125,13 @@ function NotificationManager() {
   }
 
   return <Card><CardContent className="p-5"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><div className="mb-2 flex items-center gap-2">{subscription ? <Bell className="size-4 text-primary" /> : <BellOff className="size-4 text-muted-foreground" />}<h2 className="text-sm font-semibold">Daily reminders</h2></div><p className="text-xs text-muted-foreground">Due-today and overdue tasks · Denver morning · This device</p>{message && <p className="mt-2 text-xs text-primary">{message}</p>}</div><div className="flex gap-2">{!supported ? <Badge className="border-border bg-secondary text-muted-foreground">Not supported</Badge> : subscription ? <><Button variant="outline" onClick={() => void test()} disabled={busy}><Send />Test</Button><Button variant="outline" onClick={() => void disable()} disabled={busy}><BellOff />Disable</Button></> : <Button onClick={() => void enable()} disabled={busy}><Bell />Enable reminders</Button>}</div></div></CardContent></Card>;
+}
+
+function DevelopmentQueue({ projects, intelligence }: { projects: Project[]; intelligence: Record<string, ProjectIntelligence> }) {
+  const pullRequests = projects.flatMap((project) => (intelligence[project.id]?.github?.pullRequests ?? []).map((pull) => ({ ...pull, project: project.name })));
+  const issues = projects.flatMap((project) => (intelligence[project.id]?.github?.issues ?? []).map((issue) => ({ ...issue, project: project.name })));
+  if (!pullRequests.length && !issues.length) return null;
+  return <section id="development" className="mb-10"><Card><CardContent className="p-5"><div className="mb-5 flex items-center gap-2"><CodePullRequest className="size-4 text-primary" /><div><h2 className="text-sm font-semibold">Development queue</h2><p className="mt-1 text-xs text-muted-foreground">Open GitHub work across tracked repositories.</p></div></div><div className="grid gap-5 lg:grid-cols-2"><div><div className="mb-2 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Pull requests · {pullRequests.length}</div><div className="space-y-1">{pullRequests.slice(0, 8).map((pull) => <a key={`${pull.project}-${pull.number}`} href={pull.url} target="_blank" rel="noreferrer" className="flex items-start gap-2 rounded-lg px-2 py-2.5 hover:bg-accent/50"><CodePullRequest className="mt-0.5 size-4 shrink-0 text-violet-400" /><div className="min-w-0 flex-1"><div className="truncate text-xs">{pull.title}</div><div className="mt-0.5 font-mono text-[9px] text-muted-foreground">{pull.project} · #{pull.number}</div></div><Badge className={pull.draft ? "border-border bg-secondary text-muted-foreground" : "border-emerald-500/20 bg-emerald-500/10 text-emerald-500"}>{pull.draft ? "Draft" : "Ready"}</Badge></a>)}</div></div><div><div className="mb-2 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Issues · {issues.length}</div><div className="space-y-1">{issues.slice(0, 8).map((issue) => <a key={`${issue.project}-${issue.number}`} href={issue.url} target="_blank" rel="noreferrer" className="flex items-start gap-2 rounded-lg px-2 py-2.5 hover:bg-accent/50"><CircleDotDashed className="mt-0.5 size-4 shrink-0 text-amber-400" /><div className="min-w-0 flex-1"><div className="truncate text-xs">{issue.title}</div><div className="mt-0.5 font-mono text-[9px] text-muted-foreground">{issue.project} · #{issue.number}</div></div></a>)}</div></div></div></CardContent></Card></section>;
 }
 
 function AnalyticsSection({ tasks, projects, today }: { tasks: Task[]; projects: Project[]; today: string }) {
@@ -515,6 +522,7 @@ export function Dashboard() {
             <Card><CardContent className="p-5"><div className="mb-5"><h2 className="text-sm font-semibold">Pressure map</h2><p className="mt-1 text-xs text-muted-foreground">Signals that may need intervention.</p></div><div className="space-y-3"><div className="flex items-center justify-between rounded-lg bg-background/45 p-3"><div className="flex items-center gap-2 text-xs"><Flame className="size-4 text-red-500" />Overdue tasks</div><span className="font-mono text-sm font-semibold">{overdueTasks.length}</span></div><div className="flex items-center justify-between rounded-lg bg-background/45 p-3"><div className="flex items-center gap-2 text-xs"><AlertCircle className="size-4 text-amber-500" />High priority</div><span className="font-mono text-sm font-semibold">{highPriorityTasks.length}</span></div><div className="flex items-center justify-between rounded-lg bg-background/45 p-3"><div className="flex items-center gap-2 text-xs"><Clock3 className="size-4 text-violet-400" />Stalled projects</div><span className="font-mono text-sm font-semibold">{stalledProjects.length}</span></div><div className="flex items-center justify-between rounded-lg bg-background/45 p-3"><div className="flex items-center gap-2 text-xs"><Gauge className="size-4 text-emerald-400" />Avg. momentum</div><span className="font-mono text-sm font-semibold">{averageMomentum}%</span></div></div>{stalledProjects.length > 0 && <div className="mt-4 border-t border-border pt-3"><div className="mb-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Needs a pulse</div><div className="flex flex-wrap gap-1.5">{stalledProjects.slice(0, 4).map((project) => <button key={project.id} onClick={() => setEditingProject(project)}><Badge className="border-border bg-secondary text-muted-foreground hover:text-foreground">{project.name}</Badge></button>)}</div></div>}</CardContent></Card>
           </section>
 
+          <DevelopmentQueue projects={workspace.projects} intelligence={intelligence} />
           <AnalyticsSection tasks={workspace.tasks} projects={workspace.projects} today={today} />
           <CalendarTimeline tasks={workspace.tasks} projects={workspace.projects} onEdit={setEditingTask} onToggle={toggleTask} />
 

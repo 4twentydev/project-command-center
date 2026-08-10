@@ -18,14 +18,18 @@ async function githubStatus(repositoryUrl: string) {
   const headers: HeadersInit = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   const base = `https://api.github.com/repos/${repository.owner}/${repository.repo}`;
-  const [repoResponse, commitResponse] = await Promise.all([
+  const [repoResponse, commitResponse, pullResponse, issueResponse] = await Promise.all([
     fetch(base, { headers, next: { revalidate: 60 } }),
     fetch(`${base}/commits?per_page=1`, { headers, next: { revalidate: 60 } }),
+    fetch(`${base}/pulls?state=open&per_page=5&sort=updated&direction=desc`, { headers, next: { revalidate: 60 } }),
+    fetch(`${base}/issues?state=open&per_page=10&sort=updated&direction=desc`, { headers, next: { revalidate: 60 } }),
   ]);
   if (!repoResponse.ok) return { available: false, status: repoResponse.status };
   const repo = await repoResponse.json();
   const commits = commitResponse.ok ? await commitResponse.json() : [];
   const commit = commits[0];
+  const pulls = pullResponse.ok ? await pullResponse.json() : [];
+  const issueRows = issueResponse.ok ? await issueResponse.json() : [];
   return {
     available: true,
     private: Boolean(repo.private),
@@ -38,6 +42,8 @@ async function githubStatus(repositoryUrl: string) {
       url: commit.html_url as string,
       date: commit.commit.author?.date as string | undefined,
     } : null,
+    pullRequests: pulls.map((pull: { number: number; title: string; html_url: string; draft?: boolean; updated_at: string }) => ({ number: pull.number, title: pull.title, url: pull.html_url, draft: Boolean(pull.draft), updatedAt: pull.updated_at })),
+    issues: issueRows.filter((issue: { pull_request?: unknown }) => !issue.pull_request).slice(0, 5).map((issue: { number: number; title: string; html_url: string; updated_at: string }) => ({ number: issue.number, title: issue.title, url: issue.html_url, updatedAt: issue.updated_at })),
   };
 }
 

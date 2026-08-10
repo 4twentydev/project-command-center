@@ -47,6 +47,8 @@ Cloud-synced workspace settings store display identity, timezone-aware reminders
 
 Operating analytics calculate seven-day throughput, thirty-day completion rate, average task cycle time, daily completion trends, open-work priority mix, and project status distribution without sending analytics data to a third party.
 
+GitHub project intelligence includes open pull requests with draft/ready state, open issues, direct links, and an aggregated development queue across tracked repositories.
+
 The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Protect the deployment with Vercel Authentication because the workspace API supports writes.
 
 ## Live project intelligence
