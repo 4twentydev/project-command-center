@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import {
   Activity, ArrowLeft, BriefcaseBusiness, Building2, CalendarDays, Check, CheckCircle2,
@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DialogBoundary } from "@/components/ui/dialog-boundary";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -19,11 +20,11 @@ import {
   prospectSegments, type ContentStatus, type MarketingActivityType, type MarketingFunnelStage,
   type MarketingSource, type ProspectSegment,
 } from "@/lib/marketing-plan";
-import { emptyMarketingWorkspace, type MarketingActivity, type MarketingContentItem, type MarketingProspect, type MarketingWorkspace } from "@/lib/marketing-workspace";
+import { beginMarketingCampaign, type MarketingActivity, type MarketingContentItem, type MarketingProspect, type MarketingWorkspace } from "@/lib/marketing-workspace";
 import { cn } from "@/lib/utils";
 
 type MarketingView = "today" | "pipeline" | "content" | "plan" | "templates" | "partners";
-type SyncState = "idle" | "saving" | "saved" | "error";
+type SyncState = "idle" | "saving" | "saved" | "error" | "conflict";
 
 const selectClass = "h-10 w-full rounded-lg border border-border bg-background/70 px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15";
 const stageStyle: Record<MarketingFunnelStage, string> = {
@@ -93,26 +94,44 @@ function ContentDialog({ item, onClose, onSave }: { item: MarketingContentItem; 
   return <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-background/85 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><Card className="w-full max-w-2xl"><CardContent className="p-6"><div className="flex items-start justify-between"><div><div className="font-mono text-[9px] uppercase tracking-[0.2em] text-primary">Week {draft.week} content</div><h2 className="mt-2 text-xl font-semibold">Edit content item</h2></div><Button variant="ghost" size="icon" onClick={onClose} aria-label="Close content editor"><X /></Button></div><form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); if (!draft.title.trim()) return; onSave({ ...draft, title: draft.title.trim(), updatedAt: new Date().toISOString() }); onClose(); }}><label className="text-xs font-medium">Topic<Input className="mt-2" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label><div className="grid gap-4 sm:grid-cols-3"><label className="text-xs font-medium">Week<select className={cn(selectClass, "mt-2")} value={draft.week} onChange={(event) => setDraft({ ...draft, week: Number(event.target.value) })}>{launchWeeks.map((week) => <option key={week.week} value={week.week}>Week {week.week}</option>)}</select></label><label className="text-xs font-medium">Format<select className={cn(selectClass, "mt-2")} value={draft.format} onChange={(event) => setDraft({ ...draft, format: event.target.value as MarketingContentItem["format"] })}>{["linkedin-post", "photo-post", "case-note", "collateral"].map((value) => <option key={value}>{value}</option>)}</select></label><label className="text-xs font-medium">Status<select className={cn(selectClass, "mt-2")} value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as ContentStatus })}>{contentStatuses.map((value) => <option key={value}>{value}</option>)}</select></label></div><label className="text-xs font-medium">Publish date<Input className="mt-2" type="date" value={draft.publishAt} onChange={(event) => setDraft({ ...draft, publishAt: event.target.value })} /></label><label className="text-xs font-medium">Asset or source note<Textarea className="mt-2 min-h-20" value={draft.asset} onChange={(event) => setDraft({ ...draft, asset: event.target.value })} placeholder="Approved photo, screenshot, diagram, or source needed" /></label><label className="text-xs font-medium">Call to action<Input className="mt-2" value={draft.cta} onChange={(event) => setDraft({ ...draft, cta: event.target.value })} /></label><label className="text-xs font-medium">Result<Textarea className="mt-2 min-h-20" value={draft.result} onChange={(event) => setDraft({ ...draft, result: event.target.value })} placeholder="Conversations, profile visits, qualified action, or lesson" /></label><div className="flex justify-end gap-2 pt-3"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit"><Check />Save content</Button></div></form></CardContent></Card></div>;
 }
 
-export function MarketingOperations({ initialWorkspace, storageAvailable }: { initialWorkspace: MarketingWorkspace; storageAvailable: boolean }) {
+export function MarketingOperations({ initialWorkspace, initialUpdatedAt, storageAvailable }: { initialWorkspace: MarketingWorkspace; initialUpdatedAt: string | null; storageAvailable: boolean }) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const [view, setView] = useState<MarketingView>("today"); const [sync, setSync] = useState<SyncState>(storageAvailable ? "idle" : "error");
   const [prospectEditor, setProspectEditor] = useState<MarketingProspect | null>(null); const [activityProspect, setActivityProspect] = useState<MarketingProspect | null | undefined>(); const [contentEditor, setContentEditor] = useState<MarketingContentItem | null>(null);
   const [search, setSearch] = useState(""); const [stageFilter, setStageFilter] = useState<"all" | MarketingFunnelStage>("all"); const [notice, setNotice] = useState<string | null>(storageAvailable ? null : "Run the database migration before saving marketing data.");
+  const workspaceVersionRef = useRef(initialUpdatedAt);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const saveGenerationRef = useRef(0);
   const currentWeek = campaignWeek(workspace.campaignStart); const score = scoreFor(workspace, currentWeek); const totalScore = Array.from({ length: 12 }, (_, index) => scoreFor(workspace, index + 1)).reduce((total, item) => ({ accounts: total.accounts + item.accounts, outreach: total.outreach + item.outreach, conversations: total.conversations + item.conversations, fitCalls: total.fitCalls + item.fitCalls, paidAudits: total.paidAudits + item.paidAudits, paidClients: total.paidClients + item.paidClients, bookedRevenue: total.bookedRevenue + item.bookedRevenue }), { accounts: 0, outreach: 0, conversations: 0, fitCalls: 0, paidAudits: 0, paidClients: 0, bookedRevenue: 0 });
   const activeWeek = launchWeeks[currentWeek - 1]; const today = new Date().toISOString().slice(0, 10);
   const dueProspects = workspace.prospects.filter((item) => item.nextActionAt && item.nextActionAt <= today && !["won", "lost"].includes(item.stage)).sort((a, b) => a.nextActionAt.localeCompare(b.nextActionAt));
   const filteredProspects = workspace.prospects.filter((item) => (stageFilter === "all" || item.stage === stageFilter) && [item.company, item.contactName, item.location, item.operationalSignals].join(" ").toLowerCase().includes(search.toLowerCase())).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
   async function persist(next: MarketingWorkspace) {
+    const generation = ++saveGenerationRef.current;
     setWorkspace(next); setSync("saving");
-    try { const response = await fetch("/api/marketing-workspace", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) }); if (!response.ok) throw new Error(); setSync("saved"); }
-    catch { setSync("error"); setNotice("Marketing data could not be saved."); }
+    saveQueueRef.current = saveQueueRef.current.catch(() => undefined).then(async () => {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (workspaceVersionRef.current) headers["X-Workspace-Version"] = workspaceVersionRef.current;
+      try {
+        const response = await fetch("/api/marketing-workspace", { method: "PUT", headers, body: JSON.stringify(next) });
+        if (response.status === 409) {
+          if (generation === saveGenerationRef.current) { setSync("conflict"); setNotice("Marketing data changed in another session. Reload before making more edits."); }
+          return;
+        }
+        if (!response.ok) throw new Error();
+        const payload = await response.json() as { updatedAt?: string };
+        workspaceVersionRef.current = payload.updatedAt ?? workspaceVersionRef.current;
+        if (generation === saveGenerationRef.current) setSync("saved");
+      } catch {
+        if (generation === saveGenerationRef.current) { setSync("error"); setNotice("Marketing data could not be saved."); }
+      }
+    });
+    await saveQueueRef.current;
   }
 
   function startCampaign() {
-    const now = new Date().toISOString(); const start = now.slice(0, 10);
-    const content = launchWeeks.map((week) => ({ id: crypto.randomUUID(), week: week.week, title: week.content, format: "linkedin-post" as const, status: "idea" as const, asset: "", cta: "Book a free 20-minute fit call", result: "", publishAt: "", createdAt: now, updatedAt: now }));
-    void persist({ ...emptyMarketingWorkspace, campaignStart: start, content });
+    void persist(beginMarketingCampaign(workspace));
   }
 
   function saveProspect(prospect: MarketingProspect) { void persist({ ...workspace, prospects: [prospect, ...workspace.prospects.filter((item) => item.id !== prospect.id)] }); }
@@ -126,8 +145,10 @@ export function MarketingOperations({ initialWorkspace, storageAvailable }: { in
 
   const nav: Array<{ id: MarketingView; label: string; icon: typeof Target }> = [{ id: "today", label: "Today", icon: Target }, { id: "pipeline", label: "Pipeline", icon: BriefcaseBusiness }, { id: "content", label: "Content", icon: Megaphone }, { id: "plan", label: "90-day plan", icon: CalendarDays }, { id: "templates", label: "Scripts", icon: FileText }, { id: "partners", label: "Partners", icon: Handshake }];
   return <main className="min-h-screen bg-background px-4 py-5 text-foreground sm:px-7 lg:px-9"><div className="mx-auto max-w-[1600px]">
-    {prospectEditor && <ProspectDialog prospect={prospectEditor} onClose={() => setProspectEditor(null)} onSave={saveProspect} />}{activityProspect !== undefined && <ActivityDialog prospect={activityProspect} onClose={() => setActivityProspect(undefined)} onSave={saveActivity} />}{contentEditor && <ContentDialog item={contentEditor} onClose={() => setContentEditor(null)} onSave={saveContent} />}
-    <header className="mb-6 flex flex-col gap-5 border-b border-border pb-6 lg:flex-row lg:items-end lg:justify-between"><div><Link href="/dashboard" className="mb-3 inline-flex min-h-10 items-center gap-2 text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="size-3.5" />Command Center</Link><div className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Founder-led acquisition system</div><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Marketing Operations</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">A 90-day field, content, and relationship engine for turning real operational problems into qualified conversations.</p></div><div className="flex flex-wrap items-center gap-2"><Badge className={cn("border-border bg-secondary", sync === "error" ? "text-red-400" : sync === "saving" ? "text-amber-400" : "text-muted-foreground")}>{sync === "saving" ? "Saving…" : sync === "saved" ? "Cloud saved" : sync === "error" ? "Save unavailable" : "Ready"}</Badge><Button size="sm" variant="ghost" asChild><Link href="/dashboard/leads"><Inbox />Leads</Link></Button><Button size="sm" variant="ghost" asChild><Link href="/dashboard/consultations"><ClipboardCheck />Consultations</Link></Button><Button variant="outline" asChild><Link href="/dashboard/marketing/one-sheet"><FileText />Print collateral</Link></Button><Button onClick={() => setProspectEditor(newProspect())}><Plus />Add prospect</Button></div></header>
+    {prospectEditor && <DialogBoundary label="Prospect details" onClose={() => setProspectEditor(null)}><ProspectDialog prospect={prospectEditor} onClose={() => setProspectEditor(null)} onSave={saveProspect} /></DialogBoundary>}
+    {activityProspect !== undefined && <DialogBoundary label="Record marketing activity" onClose={() => setActivityProspect(undefined)}><ActivityDialog prospect={activityProspect} onClose={() => setActivityProspect(undefined)} onSave={saveActivity} /></DialogBoundary>}
+    {contentEditor && <DialogBoundary label="Content item" onClose={() => setContentEditor(null)}><ContentDialog item={contentEditor} onClose={() => setContentEditor(null)} onSave={saveContent} /></DialogBoundary>}
+    <header className="mb-6 flex flex-col gap-5 border-b border-border pb-6 lg:flex-row lg:items-end lg:justify-between"><div><Link href="/dashboard" className="mb-3 inline-flex min-h-10 items-center gap-2 text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="size-3.5" />Command Center</Link><div className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Founder-led acquisition system</div><h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Marketing Operations</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">A 90-day field, content, and relationship engine for turning real operational problems into qualified conversations.</p></div><div className="flex flex-wrap items-center gap-2"><Badge className={cn("border-border bg-secondary", sync === "error" ? "text-red-400" : sync === "conflict" ? "text-amber-500" : sync === "saving" ? "text-amber-400" : "text-muted-foreground")}>{sync === "saving" ? "Saving…" : sync === "saved" ? "Cloud saved" : sync === "conflict" ? "Reload required" : sync === "error" ? "Save unavailable" : "Ready"}</Badge><Button size="sm" variant="ghost" asChild><Link href="/dashboard/leads"><Inbox />Leads</Link></Button><Button size="sm" variant="ghost" asChild><Link href="/dashboard/consultations"><ClipboardCheck />Consultations</Link></Button><Button variant="outline" asChild><Link href="/dashboard/marketing/one-sheet"><FileText />Print collateral</Link></Button><Button onClick={() => setProspectEditor(newProspect())}><Plus />Add prospect</Button></div></header>
     {notice && <div role="status" className="mb-5 flex min-h-11 items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 text-xs"><span>{notice}</span><button className="grid size-9 place-items-center" onClick={() => setNotice(null)} aria-label="Dismiss notice"><X className="size-3.5" /></button></div>}
     <nav className="mb-6 flex gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1.5">{nav.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => setView(item.id)} className={cn("flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-xs transition", view === item.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}><Icon className="size-4" />{item.label}</button>; })}</nav>
 

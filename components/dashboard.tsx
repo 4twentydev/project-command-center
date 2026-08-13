@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DialogBoundary } from "@/components/ui/dialog-boundary";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const statusStyles: Record<ProjectStatus, string> = {
@@ -31,7 +32,7 @@ const accentStyles = {
 };
 
 type ComposerMode = "project" | "task" | "idea" | null;
-type SyncState = "loading" | "saved" | "saving" | "offline";
+type SyncState = "loading" | "saved" | "saving" | "offline" | "conflict";
 type TaskView = "Today" | "Next" | "All";
 type Confirmation = { title: string; message: string; actionLabel: string; onConfirm: () => void };
 type UndoState = { label: string; workspace: Workspace };
@@ -332,17 +333,30 @@ export function Dashboard() {
   const [importOpen, setImportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const workspaceVersionRef = useRef<string | null>(null);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const saveGenerationRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
     async function hydrate() {
-      const saved = localStorage.getItem(workspaceStorageKey);
-      const localWorkspace: Workspace = saved ? JSON.parse(saved) : emptyWorkspace;
+      let localWorkspace: Workspace = emptyWorkspace;
+      try {
+        const saved = localStorage.getItem(workspaceStorageKey);
+        if (saved) {
+          const parsed: unknown = JSON.parse(saved);
+          if (!isWorkspaceData(parsed)) throw new Error("Invalid local workspace");
+          localWorkspace = normalizeWorkspace(parsed);
+        }
+      } catch {
+        localStorage.removeItem(workspaceStorageKey);
+      }
       try {
         const response = await fetch("/api/workspace", { cache: "no-store" });
         if (!response.ok) throw new Error("Cloud read failed");
-        const payload = await response.json() as { workspace: Workspace | null; lastSnapshotAt?: string | null };
+        const payload = await response.json() as { workspace: Workspace | null; updatedAt?: string | null; lastSnapshotAt?: string | null };
         if (cancelled) return;
+        workspaceVersionRef.current = payload.updatedAt ?? null;
         if (payload.workspace) {
           const normalized = normalizeWorkspace(payload.workspace);
           setWorkspace(normalized);
@@ -350,7 +364,10 @@ export function Dashboard() {
         } else {
           setWorkspace(localWorkspace);
           if (localWorkspace.projects.length || localWorkspace.tasks.length || localWorkspace.activity.length) {
-            await fetch("/api/workspace", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(localWorkspace) });
+            const migrationResponse = await fetch("/api/workspace", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(localWorkspace) });
+            if (!migrationResponse.ok) throw new Error("Cloud migration failed");
+            const migrationPayload = await migrationResponse.json() as { updatedAt?: string };
+            workspaceVersionRef.current = migrationPayload.updatedAt ?? null;
           }
         }
         setLastSnapshotAt(payload.lastSnapshotAt ?? null);
@@ -369,15 +386,25 @@ export function Dashboard() {
   useEffect(() => {
     if (!ready) return;
     localStorage.setItem(workspaceStorageKey, JSON.stringify(workspace));
+    const generation = ++saveGenerationRef.current;
     const timer = window.setTimeout(async () => {
       setSyncState("saving");
-      try {
-        const response = await fetch("/api/workspace", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(workspace) });
-        if (!response.ok) throw new Error("Cloud write failed");
-        setSyncState("saved");
-      } catch {
-        setSyncState("offline");
-      }
+      saveQueueRef.current = saveQueueRef.current.catch(() => undefined).then(async () => {
+        if (generation !== saveGenerationRef.current) return;
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (workspaceVersionRef.current) headers["X-Workspace-Version"] = workspaceVersionRef.current;
+        try {
+          const response = await fetch("/api/workspace", { method: "PUT", headers, body: JSON.stringify(workspace) });
+          if (response.status === 409) { if (generation === saveGenerationRef.current) setSyncState("conflict"); return; }
+          if (!response.ok) throw new Error("Cloud write failed");
+          const payload = await response.json() as { updatedAt?: string };
+          workspaceVersionRef.current = payload.updatedAt ?? workspaceVersionRef.current;
+          if (generation === saveGenerationRef.current) setSyncState("saved");
+        } catch {
+          if (generation === saveGenerationRef.current) setSyncState("offline");
+        }
+      });
+      await saveQueueRef.current;
     }, 500);
     return () => window.clearTimeout(timer);
   }, [ready, workspace]);
@@ -450,7 +477,8 @@ export function Dashboard() {
       const parsed: unknown = JSON.parse(await file.text());
       const incoming: unknown = parsed && typeof parsed === "object" && "workspace" in parsed ? (parsed as { workspace?: unknown }).workspace : parsed;
       if (!isWorkspaceData(incoming)) throw new Error("Invalid backup");
-      setConfirmation({ title: "Restore this backup?", message: "The current workspace will be replaced by the imported projects, tasks, and activity. You can undo this briefly afterward.", actionLabel: "Restore backup", onConfirm: () => { setUndo({ label: "Restored backup", workspace }); setWorkspace(incoming); } });
+      const normalized = normalizeWorkspace(incoming);
+      setConfirmation({ title: "Restore this backup?", message: "The current workspace will be replaced by the imported projects, tasks, and activity. You can undo this briefly afterward.", actionLabel: "Restore backup", onConfirm: () => { setUndo({ label: "Restored backup", workspace }); setWorkspace(normalized); } });
     } catch { setConfirmation({ title: "Backup not recognized", message: "Choose a JSON backup exported from WORK//CTRL.", actionLabel: "Close", onConfirm: () => undefined }); }
     if (importInputRef.current) importInputRef.current.value = "";
   }
@@ -510,26 +538,26 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {composer && <Composer mode={composer} projects={workspace.projects} onClose={() => setComposer(null)} onProject={addProject} onTask={addTask} onIdea={addIdea} />}
-      {editingProject && <ProjectEditor project={editingProject} onClose={() => setEditingProject(null)} onSave={updateProject} />}
-      {viewingProjectId && workspace.projects.find((project) => project.id === viewingProjectId) && <ProjectWorkspace project={workspace.projects.find((project) => project.id === viewingProjectId)!} tasks={workspace.tasks} intelligence={intelligence[viewingProjectId]} onClose={() => setViewingProjectId(null)} onEdit={() => { setEditingProject(workspace.projects.find((project) => project.id === viewingProjectId)!); setViewingProjectId(null); }} onAddTask={(title) => addTask(title, viewingProjectId)} onToggleTask={toggleTask} onEditTask={setEditingTask} />}
-      {editingTask && <TaskEditor task={editingTask} projects={workspace.projects} onClose={() => setEditingTask(null)} onSave={updateTask} />}
-      {confirmation && <ConfirmDialog confirmation={confirmation} onClose={() => setConfirmation(null)} />}
-      {commandOpen && <div className="fixed inset-0 z-[55] flex justify-center bg-background/75 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && setCommandOpen(false)}><Card className="h-fit w-full max-w-xl overflow-hidden shadow-2xl"><div className="flex items-center gap-3 border-b border-border px-4"><Search className="size-4 text-muted-foreground" /><input autoFocus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} placeholder="Type a command or search projects…" className="h-14 min-w-0 flex-1 bg-transparent text-sm outline-none" /><kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">ESC</kbd></div><div className="max-h-[55vh] overflow-y-auto p-2">{filteredCommands.length ? commandSections.map((section) => <div key={section} className="mb-2"><div className="px-2 py-2 font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">{section}</div>{filteredCommands.filter((action) => action.section === section).map((action) => <button key={action.id} onClick={() => { action.run(); setCommandOpen(false); setCommandQuery(""); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-accent"><span className="text-muted-foreground [&_svg]:size-4">{action.icon}</span><span className="min-w-0 flex-1 truncate text-sm">{action.label}</span><span className="text-[10px] text-muted-foreground">{action.hint}</span><CornerDownLeft className="size-3 text-muted-foreground/50" /></button>)}</div>) : <div className="grid min-h-32 place-items-center text-sm text-muted-foreground">No matching commands</div>}</div><div className="flex items-center gap-4 border-t border-border bg-secondary/30 px-4 py-2 font-mono text-[9px] text-muted-foreground"><span className="flex items-center gap-1"><Keyboard className="size-3" />Ctrl/⌘ K</span><span>Alt N · task</span><span>Alt I · idea</span></div></Card></div>}
-      {reviewOpen && <WeeklyReviewDialog onClose={() => setReviewOpen(false)} onSave={saveWeeklyReview} />}
-      {importOpen && <ProjectImportDialog existing={workspace.projects} onClose={() => setImportOpen(false)} onImport={importProjects} />}
-      {settingsOpen && <SettingsDialog settings={workspace.settings ?? defaultWorkspaceSettings} onClose={() => setSettingsOpen(false)} onSave={saveSettings} />}
+      {composer && <DialogBoundary label="Create a project, task, or idea" onClose={() => setComposer(null)}><Composer mode={composer} projects={workspace.projects} onClose={() => setComposer(null)} onProject={addProject} onTask={addTask} onIdea={addIdea} /></DialogBoundary>}
+      {editingProject && <DialogBoundary label="Edit project" onClose={() => setEditingProject(null)}><ProjectEditor project={editingProject} onClose={() => setEditingProject(null)} onSave={updateProject} /></DialogBoundary>}
+      {viewingProjectId && workspace.projects.find((project) => project.id === viewingProjectId) && <DialogBoundary label="Project workspace" onClose={() => setViewingProjectId(null)}><ProjectWorkspace project={workspace.projects.find((project) => project.id === viewingProjectId)!} tasks={workspace.tasks} intelligence={intelligence[viewingProjectId]} onClose={() => setViewingProjectId(null)} onEdit={() => { setEditingProject(workspace.projects.find((project) => project.id === viewingProjectId)!); setViewingProjectId(null); }} onAddTask={(title) => addTask(title, viewingProjectId)} onToggleTask={toggleTask} onEditTask={setEditingTask} /></DialogBoundary>}
+      {editingTask && <DialogBoundary label="Edit task" onClose={() => setEditingTask(null)}><TaskEditor task={editingTask} projects={workspace.projects} onClose={() => setEditingTask(null)} onSave={updateTask} /></DialogBoundary>}
+      {confirmation && <DialogBoundary label="Confirm action" onClose={() => setConfirmation(null)}><ConfirmDialog confirmation={confirmation} onClose={() => setConfirmation(null)} /></DialogBoundary>}
+      {commandOpen && <DialogBoundary label="Command palette" onClose={() => setCommandOpen(false)}><div className="fixed inset-0 z-[55] flex justify-center bg-background/75 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && setCommandOpen(false)}><Card className="h-fit w-full max-w-xl overflow-hidden shadow-2xl"><div className="flex items-center gap-3 border-b border-border px-4"><Search className="size-4 text-muted-foreground" /><input autoFocus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} placeholder="Type a command or search projects…" aria-label="Search commands and projects" className="h-14 min-w-0 flex-1 bg-transparent text-sm outline-none" /><kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">ESC</kbd></div><div className="max-h-[55vh] overflow-y-auto p-2">{filteredCommands.length ? commandSections.map((section) => <div key={section} className="mb-2"><div className="px-2 py-2 font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">{section}</div>{filteredCommands.filter((action) => action.section === section).map((action) => <button key={action.id} onClick={() => { action.run(); setCommandOpen(false); setCommandQuery(""); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-accent"><span className="text-muted-foreground [&_svg]:size-4">{action.icon}</span><span className="min-w-0 flex-1 truncate text-sm">{action.label}</span><span className="text-[10px] text-muted-foreground">{action.hint}</span><CornerDownLeft className="size-3 text-muted-foreground/50" /></button>)}</div>) : <div className="grid min-h-32 place-items-center text-sm text-muted-foreground">No matching commands</div>}</div><div className="flex items-center gap-4 border-t border-border bg-secondary/30 px-4 py-2 font-mono text-[9px] text-muted-foreground"><span className="flex items-center gap-1"><Keyboard className="size-3" />Ctrl/⌘ K</span><span>Alt N · task</span><span>Alt I · idea</span></div></Card></div></DialogBoundary>}
+      {reviewOpen && <DialogBoundary label="Weekly review" onClose={() => setReviewOpen(false)}><WeeklyReviewDialog onClose={() => setReviewOpen(false)} onSave={saveWeeklyReview} /></DialogBoundary>}
+      {importOpen && <DialogBoundary label="Import projects" onClose={() => setImportOpen(false)}><ProjectImportDialog existing={workspace.projects} onClose={() => setImportOpen(false)} onImport={importProjects} /></DialogBoundary>}
+      {settingsOpen && <DialogBoundary label="Workspace settings" onClose={() => setSettingsOpen(false)}><SettingsDialog settings={workspace.settings ?? defaultWorkspaceSettings} onClose={() => setSettingsOpen(false)} onSave={saveSettings} /></DialogBoundary>}
       {undo && <div className="fixed bottom-5 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 text-xs shadow-2xl"><span>{undo.label}</span><Button size="sm" variant="ghost" className="text-primary" onClick={() => { setWorkspace(undo.workspace); setUndo(null); }}>Undo</Button><button onClick={() => setUndo(null)} aria-label="Dismiss"><X className="size-3.5 text-muted-foreground" /></button></div>}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_75%_-10%,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_32%)]" />
       <div className="relative mx-auto flex min-h-screen max-w-[1600px]">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/70 bg-card/30 p-4 backdrop-blur lg:flex">
           <div className="flex h-14 items-center gap-3 px-2"><div className="grid size-9 place-items-center rounded-lg border border-primary/30 bg-primary/10 text-primary"><Command className="size-5" /></div><div><div className="text-sm font-bold tracking-tight">WORK//CTRL</div><div className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">Project operating system</div></div></div>
           <nav className="mt-8 space-y-1 text-sm"><a className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2.5 font-medium text-primary" href="#"><LayoutDashboard className="size-4" />Command center</a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="/dashboard/marketing"><Megaphone className="size-4" />Marketing</a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="/dashboard/consultations"><ClipboardCheck className="size-4" />Consultations</a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#projects"><Grid2X2 className="size-4" />Projects<span className="ml-auto font-mono text-[10px]">{workspace.projects.length}</span></a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#tasks"><ListChecks className="size-4" />Tasks<span className="ml-auto font-mono text-[10px]">{openTasks}</span></a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#activity"><Activity className="size-4" />Activity</a></nav>
-          <div className="mt-auto rounded-xl border border-border bg-background/60 p-3"><div className="mb-2 flex items-center gap-2 text-xs font-medium"><TerminalSquare className="size-4 text-primary" />Cloud workspace</div><div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground"><span className={cn("size-1.5 rounded-full", syncState === "saved" ? "bg-emerald-400" : syncState === "offline" ? "bg-amber-400" : "animate-pulse bg-primary")} />{syncState === "loading" ? "Loading cloud data" : syncState === "saving" ? "Saving changes" : syncState === "offline" ? "Offline · Saved locally" : "Synced across devices"}</div></div>
+          <div className="mt-auto rounded-xl border border-border bg-background/60 p-3"><div className="mb-2 flex items-center gap-2 text-xs font-medium"><TerminalSquare className="size-4 text-primary" />Cloud workspace</div><div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground"><span className={cn("size-1.5 rounded-full", syncState === "saved" ? "bg-emerald-400" : syncState === "offline" || syncState === "conflict" ? "bg-amber-400" : "animate-pulse bg-primary")} />{syncState === "loading" ? "Loading cloud data" : syncState === "saving" ? "Saving changes" : syncState === "offline" ? "Offline · Saved locally" : syncState === "conflict" ? "Cloud changed · Reload before editing" : "Synced across devices"}</div></div>
         </aside>
 
         <main className="min-w-0 flex-1 px-4 pb-16 sm:px-6 xl:px-10">
-          <header className="flex h-20 items-center justify-between border-b border-border/60"><div className="flex items-center gap-2 text-xs text-muted-foreground"><CircleDot className={cn("size-3", syncState === "offline" ? "text-amber-400" : "text-emerald-400")} /><span className="hidden sm:inline">{syncState === "offline" ? "Working offline" : syncState === "saving" ? "Saving…" : "Workspace ready"}</span></div><div className="flex items-center gap-2"><Button variant="outline" className="hidden text-muted-foreground md:flex" onClick={() => setCommandOpen(true)}><Search />Commands <kbd className="ml-4 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[9px]">Ctrl K</kbd></Button><Button variant="outline" size="icon" onClick={() => void refreshIntelligence()} aria-label="Refresh project status"><RefreshCw className={cn(refreshing && "animate-spin")} /></Button><ThemeToggle /><Button onClick={() => setComposer("project")}><Plus />New project</Button></div></header>
+          <header className="flex h-20 items-center justify-between border-b border-border/60"><div className="flex items-center gap-2 text-xs text-muted-foreground"><CircleDot className={cn("size-3", syncState === "offline" || syncState === "conflict" ? "text-amber-400" : "text-emerald-400")} /><span className="hidden sm:inline">{syncState === "offline" ? "Working offline" : syncState === "conflict" ? "Reload to resolve cloud changes" : syncState === "saving" ? "Saving…" : "Workspace ready"}</span></div><div className="flex items-center gap-2"><Button variant="outline" className="hidden text-muted-foreground md:flex" onClick={() => setCommandOpen(true)}><Search />Commands <kbd className="ml-4 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[9px]">Ctrl K</kbd></Button><Button variant="outline" size="icon" onClick={() => void refreshIntelligence()} aria-label="Refresh project status"><RefreshCw className={cn(refreshing && "animate-spin")} /></Button><ThemeToggle /><Button onClick={() => setComposer("project")}><Plus />New project</Button></div></header>
 
           <section className="py-10"><div className="mb-8"><div className="mb-3 font-mono text-[10px] uppercase tracking-[0.25em] text-primary">Personal operations</div><h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Build what matters next.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Projects, tasks, ideas, and movement—captured in one clean operating view.</p></div><div className="grid gap-3 sm:grid-cols-3"><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Projects</div><div className="mt-1 text-2xl font-semibold">{workspace.projects.length}</div></div><Grid2X2 className="size-5 text-primary" /></CardContent></Card><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Open tasks</div><div className="mt-1 text-2xl font-semibold">{openTasks}</div></div><ListChecks className="size-5 text-amber-400" /></CardContent></Card><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Signals logged</div><div className="mt-1 text-2xl font-semibold">{workspace.activity.length}</div></div><Activity className="size-5 text-emerald-400" /></CardContent></Card></div></section>
 

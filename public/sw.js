@@ -1,5 +1,12 @@
-const CACHE_NAME = "work-ctrl-shell-v1";
+const CACHE_NAME = "work-ctrl-public-shell-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icon"];
+const PUBLIC_NAVIGATION_PATHS = new Set(["/", "/about", "/privacy", "/workflow-audit"]);
+
+function isPublicNavigation(url) {
+  return PUBLIC_NAVIGATION_PATHS.has(url.pathname)
+    || url.pathname.startsWith("/services/")
+    || url.pathname.startsWith("/work/");
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -12,9 +19,15 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET" || new URL(request.url).pathname.startsWith("/api/")) return;
-  if (request.mode === "navigate") {
-    event.respondWith(fetch(request).then((response) => { const copy = response.clone(); void caches.open(CACHE_NAME).then((cache) => cache.put("/", copy)); return response; }).catch(() => caches.match("/")));
-  }
+  const url = new URL(request.url);
+  if (request.mode !== "navigate" || url.origin !== self.location.origin || !isPublicNavigation(url)) return;
+  event.respondWith(fetch(request).then((response) => {
+    if (response.ok && response.type === "basic") {
+      const copy = response.clone();
+      event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)));
+    }
+    return response;
+  }).catch(async () => (await caches.match(request)) || (await caches.match("/"))));
 });
 
 self.addEventListener("push", (event) => {

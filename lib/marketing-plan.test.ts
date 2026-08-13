@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { idealCustomerProfile, launchBudget, launchWeeks, marketingFunnelStages, marketingTargets, marketingTemplates, outreachSequence, partnerResources } from "@/lib/marketing-plan";
-import { normalizeMarketingWorkspace } from "@/lib/marketing-workspace";
+import { beginMarketingCampaign, normalizeMarketingWorkspace } from "@/lib/marketing-workspace";
 
 describe("90-day marketing plan", () => {
   test("defines twelve distinct weeks and the approved funnel targets", () => {
@@ -45,5 +45,14 @@ describe("marketing workspace validation", () => {
   test("rejects incomplete workspace envelopes", () => {
     expect(normalizeMarketingWorkspace({ prospects: [], activities: [] })).toBeNull();
     expect(normalizeMarketingWorkspace(null)).toBeNull();
+  });
+  test("starts the campaign without deleting existing prospects or activity", () => {
+    const prospect = { id: "p1", company: "Example Shop", website: "", contactName: "", contactTitle: "", email: "", phone: "", location: "", segment: "other" as const, stage: "target" as const, source: "direct-outreach" as const, operationalSignals: "", fitScore: 3, nextAction: "", nextActionAt: "", notes: "", createdAt: "2026-08-01T00:00:00.000Z", updatedAt: "2026-08-01T00:00:00.000Z" };
+    const activity = { id: "a1", prospectId: "p1", type: "note" as const, outcome: "Qualified", value: 0, createdAt: "2026-08-01T00:00:00.000Z" };
+    const started = beginMarketingCampaign({ campaignStart: "", prospects: [prospect], activities: [activity], content: [] }, new Date("2026-08-10T12:00:00.000Z"));
+    expect(started.campaignStart).toBe("2026-08-10");
+    expect(started.prospects).toEqual([prospect]);
+    expect(started.activities).toEqual([activity]);
+    expect(started.content).toHaveLength(12);
   });
 });

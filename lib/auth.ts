@@ -3,14 +3,16 @@ import { brand } from "@/lib/brand";
 import { betterAuth } from "better-auth";
 import { Pool } from "pg";
 
-function readableEnvironmentValue(value: string | undefined, fallback: string) {
-  return value && value !== "[SENSITIVE]" ? value : fallback;
+function environmentValue(name: string, value: string | undefined, developmentFallback: string) {
+  if (value && value !== "[SENSITIVE]") return value;
+  if (process.env.NODE_ENV === "production") throw new Error(`${name} must be configured in production`);
+  return developmentFallback;
 }
 
-const baseURL = readableEnvironmentValue(process.env.BETTER_AUTH_URL, "http://localhost:3000");
-const relyingPartyId = readableEnvironmentValue(process.env.PASSKEY_RP_ID, new URL(baseURL).hostname);
-const databaseURL = readableEnvironmentValue(process.env.DATABASE_URL, "postgresql://localhost:5432/work_ctrl");
-const secret = readableEnvironmentValue(process.env.BETTER_AUTH_SECRET, "local-development-secret-change-before-deploying");
+const baseURL = environmentValue("BETTER_AUTH_URL", process.env.BETTER_AUTH_URL, "http://localhost:3000");
+const relyingPartyId = environmentValue("PASSKEY_RP_ID", process.env.PASSKEY_RP_ID, new URL(baseURL).hostname);
+const databaseURL = environmentValue("DATABASE_URL", process.env.DATABASE_URL, "postgresql://localhost:5432/work_ctrl");
+const secret = environmentValue("BETTER_AUTH_SECRET", process.env.BETTER_AUTH_SECRET, "local-development-secret-change-before-deploying");
 
 export const auth = betterAuth({
   appName: brand.name,

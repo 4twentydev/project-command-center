@@ -3,10 +3,12 @@ import { neon } from "@neondatabase/serverless";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const checks = { database: false, vapid: Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY), cron: Boolean(process.env.CRON_SECRET) };
+  let database = false;
   try {
-    if (process.env.DATABASE_URL) { const sql = neon(process.env.DATABASE_URL); await sql`SELECT 1`; checks.database = true; }
+    if (process.env.DATABASE_URL) { const sql = neon(process.env.DATABASE_URL); await sql`SELECT 1`; database = true; }
   } catch { /* Health response reports the failed dependency. */ }
-  const healthy = checks.database;
-  return Response.json({ status: healthy ? "ok" : "degraded", checks, checkedAt: new Date().toISOString() }, { status: healthy ? 200 : 503 });
+  return Response.json(
+    { status: database ? "ok" : "degraded", checkedAt: new Date().toISOString() },
+    { status: database ? 200 : 503, headers: { "Cache-Control": "private, no-store" } },
+  );
 }

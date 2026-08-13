@@ -1,5 +1,5 @@
 import type { ContentStatus, MarketingActivityType, MarketingFunnelStage, MarketingSource, ProspectSegment } from "@/lib/marketing-plan";
-import { contentStatuses, marketingActivityTypes, marketingFunnelStages, marketingSources, prospectSegments } from "@/lib/marketing-plan";
+import { contentStatuses, launchWeeks, marketingActivityTypes, marketingFunnelStages, marketingSources, prospectSegments } from "@/lib/marketing-plan";
 
 export type MarketingProspect = {
   id: string;
@@ -53,6 +53,17 @@ export type MarketingWorkspace = {
 };
 
 export const emptyMarketingWorkspace: MarketingWorkspace = { campaignStart: "", prospects: [], activities: [], content: [] };
+
+export function beginMarketingCampaign(workspace: MarketingWorkspace, dateValue = new Date()) {
+  const now = dateValue.toISOString();
+  const existingWeeks = new Set(workspace.content.map((item) => item.week));
+  const seededContent = launchWeeks.filter((week) => !existingWeeks.has(week.week)).map((week) => ({
+    id: crypto.randomUUID(), week: week.week, title: week.content, format: "linkedin-post" as const,
+    status: "idea" as const, asset: "", cta: "Book a free 20-minute fit call", result: "", publishAt: "",
+    createdAt: now, updatedAt: now,
+  }));
+  return { ...workspace, campaignStart: now.slice(0, 10), content: [...workspace.content, ...seededContent].toSorted((a, b) => a.week - b.week) };
+}
 
 function array(value: unknown) { return Array.isArray(value) ? value : []; }
 function text(value: unknown, max = 5000) { return typeof value === "string" ? value.slice(0, max) : ""; }

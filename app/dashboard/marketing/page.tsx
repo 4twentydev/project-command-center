@@ -9,7 +9,7 @@ export default async function MarketingPage() {
   const session = await getOwnerSession(await headers());
   if (!session) redirect("/login?next=/dashboard/marketing");
   const result = await getMarketingWorkspace()
-    .then(({ workspace }) => ({ workspace, available: true }))
-    .catch((error) => { console.error("Marketing workspace unavailable", error); return { workspace: emptyMarketingWorkspace, available: false }; });
-  return <MarketingOperations initialWorkspace={result.workspace} storageAvailable={result.available} />;
+    .then(({ workspace, updatedAt }) => ({ workspace, updatedAt, available: true }))
+    .catch((error) => { console.error("Marketing workspace unavailable", error); return { workspace: emptyMarketingWorkspace, updatedAt: null, available: false }; });
+  return <MarketingOperations initialWorkspace={result.workspace} initialUpdatedAt={result.updatedAt} storageAvailable={result.available} />;
 }
