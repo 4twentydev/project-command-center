@@ -1,11 +1,15 @@
 import { toNextJsHandler } from "better-auth/next-js";
-import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
-const handlers = toNextJsHandler(auth);
+function getHandlers() {
+  return toNextJsHandler(getAuth());
+}
 
-export const GET = handlers.GET;
+export async function GET(request: Request) {
+  return getHandlers().GET(request);
+}
 
 export async function POST(request: Request) {
   const path = new URL(request.url).pathname;
@@ -19,5 +23,5 @@ export async function POST(request: Request) {
       return Response.json({ message: "Registration is restricted." }, { status: 403 });
     }
   }
-  return handlers.POST(request);
+  return getHandlers().POST(request);
 }

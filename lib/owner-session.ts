@@ -1,7 +1,7 @@
-import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/auth";
 
 export async function getOwnerSession(requestHeaders: Headers) {
-  const session = await auth.api.getSession({ headers: requestHeaders });
+  const session = await getAuth().api.getSession({ headers: requestHeaders });
   const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
   if (!session || !ownerEmail || session.user.email.toLowerCase() !== ownerEmail) return null;
   return session;

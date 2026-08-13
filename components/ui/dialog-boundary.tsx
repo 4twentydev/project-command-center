@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 
+const dialogStack: symbol[] = [];
+
 const focusableSelector = [
   "a[href]",
   "button:not([disabled])",
@@ -28,12 +30,16 @@ export function DialogBoundary({
   }, [onClose]);
 
   useEffect(() => {
+    const dialogId = Symbol(label);
+    dialogStack.push(dialogId);
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
     const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? []).filter((element) => !element.hidden);
     const frame = window.requestAnimationFrame(() => focusable()[0]?.focus());
 
     function handleKeyDown(event: KeyboardEvent) {
+      if (dialogStack.at(-1) !== dialogId) return;
+
       if (event.key === "Escape") {
         event.preventDefault();
         onCloseRef.current();
@@ -63,9 +69,11 @@ export function DialogBoundary({
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
+      const stackIndex = dialogStack.indexOf(dialogId);
+      if (stackIndex !== -1) dialogStack.splice(stackIndex, 1);
       previouslyFocused?.focus();
     };
-  }, []);
+  }, [label]);
 
   return (
     <div ref={dialogRef} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
