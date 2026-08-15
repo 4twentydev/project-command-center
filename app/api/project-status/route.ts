@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireOwner } from "@/lib/owner-session";
+import { publicHTTPSHead } from "@/lib/public-network-url";
 
 export const runtime = "nodejs";
 
@@ -49,10 +50,10 @@ async function githubStatus(repositoryUrl: string) {
 }
 
 async function vercelStatus(deploymentUrl: string) {
-  let host: string;
-  try { host = new URL(deploymentUrl).hostname; } catch { return null; }
-  const reachableResponse = await fetch(deploymentUrl, { method: "HEAD", redirect: "manual", cache: "no-store" }).catch(() => null);
-  const reachable = Boolean(reachableResponse && reachableResponse.status < 500);
+  const check = await publicHTTPSHead(deploymentUrl);
+  if (!check) return null;
+  const host = check.url.hostname;
+  const reachable = check.status !== null && check.status < 500;
   if (!process.env.VERCEL_TOKEN) return { reachable, state: null, url: host, checkedAt: new Date().toISOString() };
   const query = process.env.VERCEL_TEAM_ID ? `?teamId=${encodeURIComponent(process.env.VERCEL_TEAM_ID)}` : "";
   const response = await fetch(`https://api.vercel.com/v13/deployments/${encodeURIComponent(host)}${query}`, {
