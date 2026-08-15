@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { contactDatabase } from "@/lib/contact-inquiries";
 import { getConsultationPlaybook } from "@/lib/consultation-playbooks";
+import { createPagination, normalizeCount } from "@/lib/pagination";
 import type { ServiceSlug } from "@/lib/services";
 
 export const consultationStatuses = ["draft", "discovery", "scoped", "archived"] as const;
@@ -56,10 +57,19 @@ export function parseConsultationInput(value: unknown): ConsultationInput | null
   };
 }
 
-export async function listConsultations() {
+export const CONSULTATION_PAGE_SIZE = 12;
+
+export async function listConsultationsPage(page = 1) {
   const sql = await contactDatabase();
-  const rows = await sql`SELECT * FROM consultations ORDER BY updated_at DESC LIMIT 100`;
-  return rows.map(mapConsultation) satisfies ConsultationRecord[];
+  const countRows = await sql`SELECT COUNT(*)::int AS total_count, COUNT(*) FILTER (WHERE status <> 'archived')::int AS active_count FROM consultations`;
+  const pagination = createPagination(countRows[0]?.total_count, page, CONSULTATION_PAGE_SIZE);
+  const offset = (pagination.page - 1) * pagination.pageSize;
+  const rows = await sql`SELECT * FROM consultations ORDER BY updated_at DESC, id DESC LIMIT ${pagination.pageSize} OFFSET ${offset}`;
+  return {
+    records: rows.map(mapConsultation) satisfies ConsultationRecord[],
+    activeTotal: normalizeCount(countRows[0]?.active_count),
+    pagination,
+  };
 }
 
 export async function createConsultation(input: ConsultationInput) {

@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { createPagination } from "@/lib/pagination";
 import type { WorkflowAuditIntake } from "@/lib/workflow-audit";
 
 export type LeadStatus = "new" | "contacted" | "qualified" | "proposal" | "won" | "lost" | "archived";
@@ -35,12 +36,23 @@ export async function contactDatabase() {
   return neon(databaseURL);
 }
 
-export async function listContactInquiries(status?: LeadStatus) {
+export const LEAD_PAGE_SIZE = 20;
+
+export async function listContactInquiryPage({ status, due = false, page = 1 }: { status?: LeadStatus; due?: boolean; page?: number } = {}) {
   const sql = await contactDatabase();
-  const rows = status
-    ? await sql`SELECT * FROM contact_inquiries WHERE status = ${status} ORDER BY created_at DESC LIMIT 100`
-    : await sql`SELECT * FROM contact_inquiries ORDER BY created_at DESC LIMIT 100`;
-  return rows.map(mapInquiry) satisfies ContactInquiry[];
+  const countRows = due
+    ? await sql`SELECT COUNT(*)::int AS count FROM contact_inquiries WHERE (follow_up_at AT TIME ZONE 'America/Denver')::date <= (NOW() AT TIME ZONE 'America/Denver')::date AND status NOT IN ('won', 'lost', 'archived')`
+    : status
+      ? await sql`SELECT COUNT(*)::int AS count FROM contact_inquiries WHERE status = ${status}`
+      : await sql`SELECT COUNT(*)::int AS count FROM contact_inquiries`;
+  const pagination = createPagination(countRows[0]?.count, page, LEAD_PAGE_SIZE);
+  const offset = (pagination.page - 1) * pagination.pageSize;
+  const rows = due
+    ? await sql`SELECT * FROM contact_inquiries WHERE (follow_up_at AT TIME ZONE 'America/Denver')::date <= (NOW() AT TIME ZONE 'America/Denver')::date AND status NOT IN ('won', 'lost', 'archived') ORDER BY follow_up_at ASC, id ASC LIMIT ${pagination.pageSize} OFFSET ${offset}`
+    : status
+      ? await sql`SELECT * FROM contact_inquiries WHERE status = ${status} ORDER BY created_at DESC, id DESC LIMIT ${pagination.pageSize} OFFSET ${offset}`
+      : await sql`SELECT * FROM contact_inquiries ORDER BY created_at DESC, id DESC LIMIT ${pagination.pageSize} OFFSET ${offset}`;
+  return { records: rows.map(mapInquiry) satisfies ContactInquiry[], pagination };
 }
 
 export async function getContactInquiry(id: number) {
@@ -67,12 +79,6 @@ export async function getLeadSummary() {
     COUNT(*) FILTER (WHERE status = 'won')::int AS won_count
     FROM contact_inquiries`;
   return normalizeLeadSummary(rows[0] ?? {});
-}
-
-export async function listDueFollowUps() {
-  const sql = await contactDatabase();
-  const rows = await sql`SELECT * FROM contact_inquiries WHERE (follow_up_at AT TIME ZONE 'America/Denver')::date <= (NOW() AT TIME ZONE 'America/Denver')::date AND status NOT IN ('won', 'lost', 'archived') ORDER BY follow_up_at ASC LIMIT 100`;
-  return rows.map(mapInquiry) satisfies ContactInquiry[];
 }
 
 export function normalizeLeadSummary(row: Record<string, unknown>): LeadSummary {
