@@ -2,9 +2,11 @@ import { neon } from "@neondatabase/serverless";
 import { NextResponse } from "next/server";
 import { parseWorkspace } from "@/lib/workspace-validation";
 import { requireOwner } from "@/lib/owner-session";
+import { readRequestTextWithLimit } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 const workspaceId = "primary";
+const workspaceBodyLimit = 2_000_000;
 
 function getSql() {
   const databaseUrl = process.env.DATABASE_URL;
@@ -48,11 +50,10 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   const unauthorized = await requireOwner(request.headers);
   if (unauthorized) return unauthorized;
-  if (Number(request.headers.get("content-length") ?? 0) > 2_000_000) return NextResponse.json({ error: "Workspace is too large" }, { status: 413 });
   try {
-    const raw = await request.text();
-    if (new TextEncoder().encode(raw).byteLength > 2_000_000) return NextResponse.json({ error: "Workspace is too large" }, { status: 413 });
-    const workspace = parseWorkspace(JSON.parse(raw));
+    const body = await readRequestTextWithLimit(request, workspaceBodyLimit);
+    if (!body.ok) return NextResponse.json({ error: "Workspace is too large" }, { status: 413 });
+    const workspace = parseWorkspace(JSON.parse(body.value));
     if (!workspace) return NextResponse.json({ error: "Invalid workspace data" }, { status: 400 });
     const sql = getSql();
     const serialized = JSON.stringify(workspace);

@@ -1,17 +1,18 @@
 import { normalizeMarketingWorkspace } from "@/lib/marketing-workspace";
 import { saveMarketingWorkspace } from "@/lib/marketing-storage";
 import { requireOwner } from "@/lib/owner-session";
+import { readRequestTextWithLimit } from "@/lib/request-body";
 
 export const runtime = "nodejs";
+const workspaceBodyLimit = 2_000_000;
 
 export async function PUT(request: Request) {
   const unauthorized = await requireOwner(request.headers);
   if (unauthorized) return unauthorized;
-  if (Number(request.headers.get("content-length") ?? 0) > 2_000_000) return Response.json({ error: "Marketing workspace is too large" }, { status: 413 });
   try {
-    const raw = await request.text();
-    if (new TextEncoder().encode(raw).byteLength > 2_000_000) return Response.json({ error: "Marketing workspace is too large" }, { status: 413 });
-    const workspace = normalizeMarketingWorkspace(JSON.parse(raw));
+    const body = await readRequestTextWithLimit(request, workspaceBodyLimit);
+    if (!body.ok) return Response.json({ error: "Marketing workspace is too large" }, { status: 413 });
+    const workspace = normalizeMarketingWorkspace(JSON.parse(body.value));
     if (!workspace) return Response.json({ error: "Invalid marketing workspace" }, { status: 400 });
     const updatedAt = await saveMarketingWorkspace(workspace, request.headers.get("x-workspace-version"));
     if (!updatedAt) return Response.json({ error: "Marketing workspace changed in another session" }, { status: 409 });
