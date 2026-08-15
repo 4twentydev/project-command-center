@@ -4,6 +4,12 @@ import type { WorkflowAuditIntake } from "@/lib/workflow-audit";
 export type LeadStatus = "new" | "contacted" | "qualified" | "proposal" | "won" | "lost" | "archived";
 export type NotificationStatus = "not_configured" | "queued" | "sent" | "delivered" | "bounced" | "complained" | "failed";
 
+export type LeadSummary = {
+  open: number;
+  due: number;
+  won: number;
+};
+
 export type ContactInquiry = {
   id: number;
   name: string;
@@ -50,10 +56,36 @@ export async function countDueFollowUps() {
   return Number(rows[0]?.count ?? 0);
 }
 
+export async function getLeadSummary() {
+  const sql = await contactDatabase();
+  const rows = await sql`SELECT
+    COUNT(*) FILTER (WHERE status NOT IN ('won', 'lost', 'archived'))::int AS open_count,
+    COUNT(*) FILTER (
+      WHERE (follow_up_at AT TIME ZONE 'America/Denver')::date <= (NOW() AT TIME ZONE 'America/Denver')::date
+        AND status NOT IN ('won', 'lost', 'archived')
+    )::int AS due_count,
+    COUNT(*) FILTER (WHERE status = 'won')::int AS won_count
+    FROM contact_inquiries`;
+  return normalizeLeadSummary(rows[0] ?? {});
+}
+
 export async function listDueFollowUps() {
   const sql = await contactDatabase();
   const rows = await sql`SELECT * FROM contact_inquiries WHERE (follow_up_at AT TIME ZONE 'America/Denver')::date <= (NOW() AT TIME ZONE 'America/Denver')::date AND status NOT IN ('won', 'lost', 'archived') ORDER BY follow_up_at ASC LIMIT 100`;
   return rows.map(mapInquiry) satisfies ContactInquiry[];
+}
+
+export function normalizeLeadSummary(row: Record<string, unknown>): LeadSummary {
+  return {
+    open: normalizeCount(row.open_count),
+    due: normalizeCount(row.due_count),
+    won: normalizeCount(row.won_count),
+  };
+}
+
+function normalizeCount(value: unknown) {
+  const count = Number(value);
+  return Number.isSafeInteger(count) && count >= 0 ? count : 0;
 }
 
 function mapInquiry(row: Record<string, unknown>): ContactInquiry {
