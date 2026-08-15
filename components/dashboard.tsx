@@ -16,7 +16,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DialogBoundary } from "@/components/ui/dialog-boundary";
+import { SyncConflictDialog } from "@/components/ui/sync-conflict-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { readVersionedWorkspace, saveVersionedWorkspace } from "@/lib/versioned-workspace-client";
 
 const statusStyles: Record<ProjectStatus, string> = {
   Active: "border-emerald-500/20 bg-emerald-500/10 text-emerald-500",
@@ -37,6 +39,7 @@ type SyncState = "loading" | "saved" | "saving" | "offline" | "conflict";
 type TaskView = "Today" | "Next" | "All";
 type Confirmation = { title: string; message: string; actionLabel: string; onConfirm: () => void };
 type UndoState = { label: string; workspace: Workspace };
+type WorkspaceConflict = { local: Workspace; cloud: Workspace | null; cloudVersion: string | null; loading: boolean; resolving: boolean; error: string | null };
 
 type ProjectIntelligence = {
   github: null | { available: boolean; private?: boolean; defaultBranch?: string; openIssues?: number; pushedAt?: string; latestCommit?: null | { sha: string; message: string; url: string; date?: string }; pullRequests?: Array<{ number: number; title: string; url: string; draft: boolean; updatedAt: string }>; issues?: Array<{ number: number; title: string; url: string; updatedAt: string }> };
@@ -331,10 +334,25 @@ export function Dashboard() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [conflict, setConflict] = useState<WorkspaceConflict | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const workspaceVersionRef = useRef<string | null>(null);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const saveGenerationRef = useRef(0);
+  const conflictRef = useRef(false);
+  const skipNextSaveRef = useRef(false);
+
+  const loadConflict = useCallback(async (local: Workspace) => {
+    conflictRef.current = true;
+    setSyncState("conflict");
+    setConflict({ local, cloud: null, cloudVersion: null, loading: true, resolving: false, error: null });
+    const result = await readVersionedWorkspace("/api/workspace", (value) => isWorkspaceData(value) ? normalizeWorkspace(value) : null);
+    if (result.status === "error") {
+      setConflict((current) => current ? { ...current, loading: false, error: "The current cloud workspace could not be loaded. Your local copy is still safe in this browser." } : current);
+      return;
+    }
+    setConflict((current) => current ? { ...current, cloud: result.workspace ?? emptyWorkspace, cloudVersion: result.updatedAt, loading: false, error: null } : current);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -385,28 +403,23 @@ export function Dashboard() {
   useEffect(() => {
     if (!ready) return;
     localStorage.setItem(workspaceStorageKey, JSON.stringify(workspace));
+    if (skipNextSaveRef.current) { skipNextSaveRef.current = false; return; }
+    if (conflictRef.current) return;
     const generation = ++saveGenerationRef.current;
     const timer = window.setTimeout(async () => {
       setSyncState("saving");
       saveQueueRef.current = saveQueueRef.current.catch(() => undefined).then(async () => {
         if (generation !== saveGenerationRef.current) return;
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (workspaceVersionRef.current) headers["X-Workspace-Version"] = workspaceVersionRef.current;
-        try {
-          const response = await fetch("/api/workspace", { method: "PUT", headers, body: JSON.stringify(workspace) });
-          if (response.status === 409) { if (generation === saveGenerationRef.current) setSyncState("conflict"); return; }
-          if (!response.ok) throw new Error("Cloud write failed");
-          const payload = await response.json() as { updatedAt?: string };
-          workspaceVersionRef.current = payload.updatedAt ?? workspaceVersionRef.current;
-          if (generation === saveGenerationRef.current) setSyncState("saved");
-        } catch {
-          if (generation === saveGenerationRef.current) setSyncState("offline");
-        }
+        const result = await saveVersionedWorkspace("/api/workspace", workspace, workspaceVersionRef.current);
+        if (result.status === "conflict") { if (generation === saveGenerationRef.current) await loadConflict(workspace); return; }
+        if (result.status === "error") { if (generation === saveGenerationRef.current) setSyncState("offline"); return; }
+        workspaceVersionRef.current = result.updatedAt ?? workspaceVersionRef.current;
+        if (generation === saveGenerationRef.current) setSyncState("saved");
       });
       await saveQueueRef.current;
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [ready, workspace]);
+  }, [loadConflict, ready, workspace]);
 
   const refreshIntelligence = useCallback(async () => {
     const linked = workspace.projects.filter((project) => project.repo || project.deployment);
@@ -463,12 +476,43 @@ export function Dashboard() {
   function updateTask(task: Task) { setWorkspace((current) => ({ ...current, tasks: current.tasks.map((item) => item.id === task.id ? task : item), activity: [record(`Updated task · ${task.title}`), ...current.activity].slice(0, 30) })); }
   function deleteTask(id: string) { const task = workspace.tasks.find((item) => item.id === id); if (!task) return; setConfirmation({ title: "Delete this task?", message: `“${task.title}” will be removed. You can undo this briefly afterward.`, actionLabel: "Delete task", onConfirm: () => { setUndo({ label: `Deleted ${task.title}`, workspace }); setWorkspace((current) => ({ ...current, tasks: current.tasks.filter((item) => item.id !== id), activity: [record(`Removed task · ${task.title}`), ...current.activity].slice(0, 30) })); } }); }
 
-  function exportWorkspace() {
-    const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), workspace }, null, 2)], { type: "application/json" });
+  function downloadWorkspace(value: Workspace, filename = `work-ctrl-backup-${today}.json`) {
+    const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), workspace: value }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
-    anchor.href = url; anchor.download = `work-ctrl-backup-${today}.json`; anchor.click();
+    anchor.href = url; anchor.download = filename; anchor.click();
     URL.revokeObjectURL(url);
+  }
+
+  function exportWorkspace() { downloadWorkspace(workspace); }
+
+  function useCloudConflict() {
+    if (!conflict?.cloud) return;
+    saveGenerationRef.current += 1;
+    skipNextSaveRef.current = true;
+    conflictRef.current = false;
+    workspaceVersionRef.current = conflict.cloudVersion;
+    localStorage.setItem(workspaceStorageKey, JSON.stringify(conflict.cloud));
+    setWorkspace(conflict.cloud);
+    setConflict(null);
+    setSyncState("saved");
+  }
+
+  async function keepLocalConflict() {
+    if (!conflict || conflict.loading || conflict.error) return;
+    setConflict((current) => current ? { ...current, resolving: true } : current);
+    const result = await saveVersionedWorkspace("/api/workspace", conflict.local, conflict.cloudVersion);
+    if (result.status === "conflict") { await loadConflict(conflict.local); return; }
+    if (result.status === "error") {
+      setConflict((current) => current ? { ...current, resolving: false, error: "The local workspace could not be saved. Export it for safekeeping or retry the cloud read." } : current);
+      return;
+    }
+    workspaceVersionRef.current = result.updatedAt ?? conflict.cloudVersion;
+    conflictRef.current = false;
+    setWorkspace(conflict.local);
+    localStorage.setItem(workspaceStorageKey, JSON.stringify(conflict.local));
+    setConflict(null);
+    setSyncState("saved");
   }
 
   async function importWorkspace(file: File) {
@@ -539,6 +583,12 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {conflict && <DialogBoundary label="Resolve workspace conflict" onClose={() => undefined}><SyncConflictDialog title="Choose which workspace to keep" comparisons={[
+        { label: "Projects", local: conflict.local.projects.length, cloud: conflict.cloud?.projects.length ?? "—" },
+        { label: "Tasks", local: conflict.local.tasks.length, cloud: conflict.cloud?.tasks.length ?? "—" },
+        { label: "Inbox items", local: conflict.local.inbox?.length ?? 0, cloud: conflict.cloud?.inbox?.length ?? "—" },
+        { label: "Activity entries", local: conflict.local.activity.length, cloud: conflict.cloud?.activity.length ?? "—" },
+      ]} cloudUpdatedAt={conflict.cloudVersion} loading={conflict.loading} resolving={conflict.resolving} error={conflict.error} onRetry={() => void loadConflict(conflict.local)} onUseCloud={useCloudConflict} onKeepLocal={() => void keepLocalConflict()} onExportLocal={() => downloadWorkspace(conflict.local, `work-ctrl-conflict-local-${today}.json`)} /></DialogBoundary>}
       {composer && <DialogBoundary label="Create a project, task, or idea" onClose={() => setComposer(null)}><Composer mode={composer} projects={workspace.projects} onClose={() => setComposer(null)} onProject={addProject} onTask={addTask} onIdea={addIdea} /></DialogBoundary>}
       {editingProject && <DialogBoundary label="Edit project" onClose={() => setEditingProject(null)}><ProjectEditor project={editingProject} onClose={() => setEditingProject(null)} onSave={updateProject} /></DialogBoundary>}
       {viewingProjectId && workspace.projects.find((project) => project.id === viewingProjectId) && <DialogBoundary label="Project workspace" onClose={() => setViewingProjectId(null)}><ProjectWorkspace project={workspace.projects.find((project) => project.id === viewingProjectId)!} tasks={workspace.tasks} intelligence={intelligence[viewingProjectId]} onClose={() => setViewingProjectId(null)} onEdit={() => { setEditingProject(workspace.projects.find((project) => project.id === viewingProjectId)!); setViewingProjectId(null); }} onAddTask={(title) => addTask(title, viewingProjectId)} onToggleTask={toggleTask} onEditTask={setEditingTask} /></DialogBoundary>}
@@ -554,11 +604,11 @@ export function Dashboard() {
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/70 bg-card/30 p-4 backdrop-blur lg:flex">
           <div className="flex h-14 items-center gap-3 px-2"><div className="grid size-9 place-items-center rounded-lg border border-primary/30 bg-primary/10 text-primary"><Command className="size-5" /></div><div><div className="text-sm font-bold tracking-tight">WORK//CTRL</div><div className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">Project operating system</div></div></div>
           <nav className="mt-8 space-y-1 text-sm"><a className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2.5 font-medium text-primary" href="#"><LayoutDashboard className="size-4" />Command center</a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="/dashboard/marketing"><Megaphone className="size-4" />Marketing</a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="/dashboard/consultations"><ClipboardCheck className="size-4" />Consultations</a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#projects"><Grid2X2 className="size-4" />Projects<span className="ml-auto font-mono text-[10px]">{workspace.projects.length}</span></a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#tasks"><ListChecks className="size-4" />Tasks<span className="ml-auto font-mono text-[10px]">{openTasks}</span></a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#activity"><Activity className="size-4" />Activity</a></nav>
-          <div className="mt-auto rounded-xl border border-border bg-background/60 p-3"><div className="mb-2 flex items-center gap-2 text-xs font-medium"><TerminalSquare className="size-4 text-primary" />Cloud workspace</div><div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground"><span className={cn("size-1.5 rounded-full", syncState === "saved" ? "bg-emerald-400" : syncState === "offline" || syncState === "conflict" ? "bg-amber-400" : "animate-pulse bg-primary")} />{syncState === "loading" ? "Loading cloud data" : syncState === "saving" ? "Saving changes" : syncState === "offline" ? "Offline · Saved locally" : syncState === "conflict" ? "Cloud changed · Reload before editing" : "Synced across devices"}</div></div>
+          <div className="mt-auto rounded-xl border border-border bg-background/60 p-3"><div className="mb-2 flex items-center gap-2 text-xs font-medium"><TerminalSquare className="size-4 text-primary" />Cloud workspace</div><div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground"><span className={cn("size-1.5 rounded-full", syncState === "saved" ? "bg-emerald-400" : syncState === "offline" || syncState === "conflict" ? "bg-amber-400" : "animate-pulse bg-primary")} />{syncState === "loading" ? "Loading cloud data" : syncState === "saving" ? "Saving changes" : syncState === "offline" ? "Offline · Saved locally" : syncState === "conflict" ? "Cloud conflict · Resolution required" : "Synced across devices"}</div></div>
         </aside>
 
         <main className="min-w-0 flex-1 px-4 pb-16 sm:px-6 xl:px-10">
-          <header className="flex h-20 items-center justify-between border-b border-border/60"><div className="flex items-center gap-2 text-xs text-muted-foreground"><CircleDot className={cn("size-3", syncState === "offline" || syncState === "conflict" ? "text-amber-400" : "text-emerald-400")} /><span className="hidden sm:inline">{syncState === "offline" ? "Working offline" : syncState === "conflict" ? "Reload to resolve cloud changes" : syncState === "saving" ? "Saving…" : "Workspace ready"}</span></div><div className="flex items-center gap-2"><Button variant="outline" className="hidden text-muted-foreground md:flex" onClick={() => setCommandOpen(true)}><Search />Commands <kbd className="ml-4 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[9px]">Ctrl K</kbd></Button><Button variant="outline" size="icon" onClick={() => void refreshIntelligence()} aria-label="Refresh project status"><RefreshCw className={cn(refreshing && "animate-spin")} /></Button><ThemeToggle /><Button onClick={() => setComposer("project")}><Plus />New project</Button></div></header>
+          <header className="flex h-20 items-center justify-between border-b border-border/60"><div className="flex items-center gap-2 text-xs text-muted-foreground"><CircleDot className={cn("size-3", syncState === "offline" || syncState === "conflict" ? "text-amber-400" : "text-emerald-400")} /><span className="hidden sm:inline">{syncState === "offline" ? "Working offline" : syncState === "conflict" ? "Resolve the cloud conflict" : syncState === "saving" ? "Saving…" : "Workspace ready"}</span></div><div className="flex items-center gap-2"><Button variant="outline" className="hidden text-muted-foreground md:flex" onClick={() => setCommandOpen(true)}><Search />Commands <kbd className="ml-4 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[9px]">Ctrl K</kbd></Button><Button variant="outline" size="icon" onClick={() => void refreshIntelligence()} aria-label="Refresh project status"><RefreshCw className={cn(refreshing && "animate-spin")} /></Button><ThemeToggle /><Button onClick={() => setComposer("project")}><Plus />New project</Button></div></header>
 
           <section className="py-10"><div className="mb-8"><div className="mb-3 font-mono text-[10px] uppercase tracking-[0.25em] text-primary">Personal operations</div><h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Build what matters next.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">Projects, tasks, ideas, and movement—captured in one clean operating view.</p></div><div className="grid gap-3 sm:grid-cols-3"><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Projects</div><div className="mt-1 text-2xl font-semibold">{workspace.projects.length}</div></div><Grid2X2 className="size-5 text-primary" /></CardContent></Card><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Open tasks</div><div className="mt-1 text-2xl font-semibold">{openTasks}</div></div><ListChecks className="size-5 text-amber-400" /></CardContent></Card><Card><CardContent className="flex items-center justify-between p-4"><div><div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Signals logged</div><div className="mt-1 text-2xl font-semibold">{workspace.activity.length}</div></div><Activity className="size-5 text-emerald-400" /></CardContent></Card></div></section>
 
