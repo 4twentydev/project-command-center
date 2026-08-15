@@ -19,6 +19,7 @@ import { DialogBoundary } from "@/components/ui/dialog-boundary";
 import { SyncConflictDialog } from "@/components/ui/sync-conflict-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { readVersionedWorkspace, saveVersionedWorkspace } from "@/lib/versioned-workspace-client";
+import { createWorkspaceSnapshotRequester } from "@/lib/workspace-snapshot-client";
 
 const statusStyles: Record<ProjectStatus, string> = {
   Active: "border-emerald-500/20 bg-emerald-500/10 text-emerald-500",
@@ -40,6 +41,7 @@ type TaskView = "Today" | "Next" | "All";
 type Confirmation = { title: string; message: string; actionLabel: string; onConfirm: () => void };
 type UndoState = { label: string; workspace: Workspace };
 type WorkspaceConflict = { local: Workspace; cloud: Workspace | null; cloudVersion: string | null; loading: boolean; resolving: boolean; error: string | null };
+type SnapshotNotice = { tone: "success" | "error"; message: string; authenticationRequired?: boolean };
 
 type ProjectIntelligence = {
   github: null | { available: boolean; private?: boolean; defaultBranch?: string; openIssues?: number; pushedAt?: string; latestCommit?: null | { sha: string; message: string; url: string; date?: string }; pullRequests?: Array<{ number: number; title: string; url: string; draft: boolean; updatedAt: string }>; issues?: Array<{ number: number; title: string; url: string; updatedAt: string }> };
@@ -329,6 +331,8 @@ export function Dashboard() {
   const [undo, setUndo] = useState<UndoState | null>(null);
   const [lastSnapshotAt, setLastSnapshotAt] = useState<string | null>(null);
   const [snapshotting, setSnapshotting] = useState(false);
+  const [snapshotNotice, setSnapshotNotice] = useState<SnapshotNotice | null>(null);
+  const [requestSnapshot] = useState(() => createWorkspaceSnapshotRequester());
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -528,8 +532,26 @@ export function Dashboard() {
 
   async function createSnapshot() {
     setSnapshotting(true);
-    try { const response = await fetch("/api/workspace", { method: "POST" }); const payload = await response.json() as { createdAt?: string }; if (!response.ok || !payload.createdAt) throw new Error(); setLastSnapshotAt(payload.createdAt); }
-    finally { setSnapshotting(false); }
+    setSnapshotNotice(null);
+    try {
+      const result = await requestSnapshot();
+      if (result.status === "created") {
+        setLastSnapshotAt(result.createdAt);
+        setSnapshotNotice({ tone: "success", message: "Cloud snapshot created successfully." });
+      } else if (result.status === "authentication-required") {
+        setSnapshotNotice({ tone: "error", message: "Your session expired. Sign in again before creating a snapshot.", authenticationRequired: true });
+      } else if (result.status === "workspace-not-saved") {
+        setSnapshotNotice({ tone: "error", message: "Save the workspace to the cloud before creating its first snapshot." });
+      } else if (result.status === "storage-unavailable") {
+        setSnapshotNotice({ tone: "error", message: "Cloud storage could not create the snapshot. Try again in a moment." });
+      } else if (result.status === "invalid-response") {
+        setSnapshotNotice({ tone: "error", message: "Cloud storage returned an unexpected response. No snapshot was confirmed." });
+      } else {
+        setSnapshotNotice({ tone: "error", message: "The snapshot request could not reach cloud storage. Check your connection and try again." });
+      }
+    } finally {
+      setSnapshotting(false);
+    }
   }
 
   function resetWorkspace() { setConfirmation({ title: "Reset the entire workspace?", message: "All projects, tasks, ideas, and activity will be cleared. Export a backup or create a snapshot first. You can undo this briefly afterward.", actionLabel: "Reset workspace", onConfirm: () => { setUndo({ label: "Reset workspace", workspace }); setWorkspace(emptyWorkspace); } }); }
@@ -636,7 +658,7 @@ export function Dashboard() {
           <section id="activity" className="mt-4"><Card><CardContent className="p-5"><div className="mb-5"><h2 className="text-sm font-semibold">Activity</h2><p className="mt-1 text-xs text-muted-foreground">An automatic trail of meaningful workspace changes.</p></div>{workspace.activity.length ? <div className="space-y-1">{workspace.activity.map((item, index) => <div key={item.id} className="flex items-center gap-3 rounded-lg px-2 py-3 hover:bg-accent/50"><div className={cn("size-2 rounded-full", index === 0 ? "bg-emerald-400" : "bg-muted-foreground/40")} /><span className="min-w-0 flex-1 truncate text-xs">{item.message}</span><span className="shrink-0 font-mono text-[9px] text-muted-foreground">{new Date(item.createdAt).toLocaleDateString()}</span></div>)}</div> : <div className="grid min-h-28 place-items-center text-xs text-muted-foreground">Activity appears as you work.</div>}</CardContent></Card></section>
           <section className="mt-4"><Card><CardContent className="p-5"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div><div className="mb-2 flex items-center gap-2"><BookOpenCheck className="size-4 text-primary" /><h2 className="text-sm font-semibold">Weekly review</h2></div>{workspace.reviews?.[0] ? <div><p className="text-xs text-muted-foreground">Last completed {new Date(workspace.reviews[0].createdAt).toLocaleDateString(undefined, { month: "long", day: "numeric" })}</p><p className="mt-3 max-w-3xl whitespace-pre-line text-sm leading-6"><span className="font-medium">Next:</span> {workspace.reviews[0].nextPriorities || "No priorities recorded."}</p></div> : <p className="text-xs text-muted-foreground">No review yet. Close your first operating loop.</p>}</div><Button variant="outline" onClick={() => setReviewOpen(true)}><BookOpenCheck />{workspace.reviews?.length ? "New review" : "Start review"}</Button></div></CardContent></Card></section>
           <section className="mt-4"><NotificationManager /></section>
-          <section className="mt-4"><Card><CardContent className="p-5"><div className="mb-5"><h2 className="text-sm font-semibold">Data safety</h2><p className="mt-1 text-xs text-muted-foreground">Portable backups and recoverable workspace controls.</p></div><input ref={importInputRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importWorkspace(file); }} /><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"><Button variant="outline" className="justify-start" onClick={exportWorkspace}><Download />Export JSON</Button><Button variant="outline" className="justify-start" onClick={() => importInputRef.current?.click()}><Upload />Import backup</Button><Button variant="outline" className="justify-start" onClick={() => void createSnapshot()} disabled={snapshotting}><DatabaseBackup className={cn(snapshotting && "animate-pulse")} />Cloud snapshot</Button><Button variant="outline" className="justify-start text-red-500 hover:text-red-500" onClick={resetWorkspace}><RotateCcw />Reset workspace</Button></div><div className="mt-3 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{lastSnapshotAt ? `Last cloud snapshot · ${new Date(lastSnapshotAt).toLocaleString()}` : "No cloud snapshot yet"}</div></CardContent></Card></section>
+          <section className="mt-4"><Card><CardContent className="p-5"><div className="mb-5"><h2 className="text-sm font-semibold">Data safety</h2><p className="mt-1 text-xs text-muted-foreground">Portable backups and recoverable workspace controls.</p></div><input ref={importInputRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importWorkspace(file); }} /><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"><Button variant="outline" className="justify-start" onClick={exportWorkspace}><Download />Export JSON</Button><Button variant="outline" className="justify-start" onClick={() => importInputRef.current?.click()}><Upload />Import backup</Button><Button variant="outline" className="justify-start" onClick={() => void createSnapshot()} disabled={snapshotting}><DatabaseBackup className={cn(snapshotting && "animate-pulse")} />{snapshotting ? "Creating snapshot…" : "Cloud snapshot"}</Button><Button variant="outline" className="justify-start text-red-500 hover:text-red-500" onClick={resetWorkspace}><RotateCcw />Reset workspace</Button></div>{snapshotNotice && <div role={snapshotNotice.tone === "error" ? "alert" : "status"} className={cn("mt-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs", snapshotNotice.tone === "success" ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-400" : "border-amber-500/25 bg-amber-500/5 text-amber-400")}><span>{snapshotNotice.message}</span><span className="flex shrink-0 items-center gap-2">{snapshotNotice.authenticationRequired && <a href="/login?next=/dashboard" className="font-medium underline underline-offset-4">Sign in</a>}<button onClick={() => setSnapshotNotice(null)} aria-label="Dismiss snapshot message"><X className="size-3.5" /></button></span></div>}<div className="mt-3 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{lastSnapshotAt ? `Last cloud snapshot · ${new Date(lastSnapshotAt).toLocaleString()}` : "No cloud snapshot yet"}</div></CardContent></Card></section>
         </main>
         <nav className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 grid grid-cols-5 rounded-2xl border border-border bg-card/95 p-1.5 shadow-2xl backdrop-blur-xl lg:hidden"><button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex flex-col items-center gap-1 rounded-xl py-2 text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"><LayoutDashboard className="size-4" />Home</button><button onClick={() => document.querySelector("#focus")?.scrollIntoView()} className="flex flex-col items-center gap-1 rounded-xl py-2 text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"><Target className="size-4" />Focus</button><button onClick={() => setComposer("task")} className="mx-auto grid size-11 -translate-y-3 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg" aria-label="New task"><Plus className="size-5" /></button><button onClick={() => document.querySelector("#projects")?.scrollIntoView()} className="flex flex-col items-center gap-1 rounded-xl py-2 text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"><Grid2X2 className="size-4" />Projects</button><button onClick={() => setCommandOpen(true)} className="flex flex-col items-center gap-1 rounded-xl py-2 text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"><Command className="size-4" />More</button></nav>
       </div>
