@@ -1,3 +1,5 @@
+import { isValidEmailAddress } from "@/lib/semantic-validation";
+
 export const workflowAuditIndustries = ["Manufacturing", "CNC / fabrication", "Sign shop", "Construction / field service", "Distribution / inventory", "Professional services", "Other"] as const;
 export const workflowAuditEmployeeRanges = ["1–5", "6–15", "16–50", "51–100", "100+"] as const;
 export const workflowAuditContactMethods = ["Email", "Phone", "Video call"] as const;
@@ -38,7 +40,7 @@ export function workflowAuditPayload(input: FormData | Record<string, unknown>):
   const read = (key: string) => input instanceof FormData ? input.get(key) : input[key];
   return {
     name: limited(read("name"), 100), business: limited(read("business"), 160),
-    email: limited(read("email"), 180).toLowerCase(), phone: limited(read("phone"), 40),
+    email: limited(read("email"), 181).toLowerCase(), phone: limited(read("phone"), 40),
     industry: limited(read("industry"), 80), employees: limited(read("employees"), 40),
     currentTools: limited(read("currentTools"), 1200), frustratingWorkflow: limited(read("frustratingWorkflow"), 4000),
     hoursLost: limited(read("hoursLost"), 20), desiredOutcome: limited(read("desiredOutcome"), 3000),
@@ -50,7 +52,7 @@ export function validateWorkflowAudit(values: WorkflowAuditValues): WorkflowAudi
   const errors: WorkflowAuditErrors = {};
   if (values.name.length < 2) errors.name = "Tell me what to call you.";
   if (values.business.length < 2) errors.business = "Enter the business or shop name.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) errors.email = "Enter a valid email address.";
+  if (!isValidEmailAddress(values.email, 180)) errors.email = "Enter a valid email address.";
   if (values.phone && !/^[+()\-.\s\d]{7,40}$/.test(values.phone)) errors.phone = "Enter a valid phone number or leave it blank.";
   if (!workflowAuditIndustries.includes(values.industry as typeof workflowAuditIndustries[number])) errors.industry = "Choose the closest industry.";
   if (values.employees && !workflowAuditEmployeeRanges.includes(values.employees as typeof workflowAuditEmployeeRanges[number])) errors.employees = "Choose a listed employee range.";

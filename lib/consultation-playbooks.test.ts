@@ -49,6 +49,14 @@ describe("consultation validation", () => {
     expect(parseConsultationInput({ ...valid, serviceSlug: "generic-consulting" })).toBeNull();
     expect(parseConsultationInput({ ...valid, status: "finished" })).toBeNull();
     expect(parseConsultationInput({ ...valid, consultationDate: "tomorrow" })).toBeNull();
+    expect(parseConsultationInput({ ...valid, consultationDate: "2026-02-30" })).toBeNull();
     expect(parseConsultationInput({ ...valid, leadId: -1 })).toBeNull();
+  });
+
+  test("requires a client identity and validates optional operational email", () => {
+    expect(parseConsultationInput({ ...valid, clientName: "", business: "" })).toBeNull();
+    expect(parseConsultationInput({ ...valid, email: "alex@example" })).toBeNull();
+    expect(parseConsultationInput({ ...valid, email: "" })?.email).toBe("");
+    expect(parseConsultationInput({ ...valid, email: " ALEX+SHOP@EXAMPLE.COM " })?.email).toBe("alex+shop@example.com");
   });
 });

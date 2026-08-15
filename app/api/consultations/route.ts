@@ -1,11 +1,8 @@
 import { createConsultation, deleteConsultation, parseConsultationInput, updateConsultation } from "@/lib/consultations";
 import { requireOwner } from "@/lib/owner-session";
+import { validUUID } from "@/lib/semantic-validation";
 
 export const runtime = "nodejs";
-
-function validId(value: unknown) {
-  return typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value) ? value : null;
-}
 
 export async function POST(request: Request) {
   const unauthorized = await requireOwner(request.headers);
@@ -25,7 +22,7 @@ export async function PUT(request: Request) {
   if (unauthorized) return unauthorized;
   try {
     const body = await request.json() as { id?: unknown; consultation?: unknown };
-    const id = validId(body.id);
+    const id = validUUID(body.id);
     const input = parseConsultationInput(body.consultation);
     if (!id || !input) return Response.json({ error: "Invalid consultation" }, { status: 400 });
     const consultation = await updateConsultation(id, input);
@@ -41,7 +38,7 @@ export async function DELETE(request: Request) {
   if (unauthorized) return unauthorized;
   try {
     const body = await request.json() as { id?: unknown };
-    const id = validId(body.id);
+    const id = validUUID(body.id);
     if (!id) return Response.json({ error: "Invalid consultation" }, { status: 400 });
     return await deleteConsultation(id) ? new Response(null, { status: 204 }) : Response.json({ error: "Consultation not found" }, { status: 404 });
   } catch (error) {

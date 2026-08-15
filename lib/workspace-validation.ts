@@ -1,6 +1,7 @@
 import { defaultWorkspaceSettings, emptyWorkspace, type ActivityItem, type InboxItem, type ProjectNote, type Task, type WeeklyReview, type Workspace, type WorkspaceSettings } from "@/lib/workspace";
 import type { Project, ProjectKind, ProjectStatus } from "@/lib/projects";
-import { normalizeTimeZone } from "@/lib/date-time";
+import { isValidDateKey, normalizeTimeZone } from "@/lib/date-time";
+import { isValidDateValue, normalizeHTTPSURL, uniqueById } from "@/lib/semantic-validation";
 
 const projectStatuses = new Set<ProjectStatus>(["Active", "Planning", "Shipped", "Paused"]);
 const projectKinds = new Set<ProjectKind>(["Software", "CNC", "Business", "Experiment"]);
@@ -19,17 +20,11 @@ function text(value: unknown, maximum: number) {
 function date(value: unknown, dateOnly = false) {
   const candidate = text(value, 40);
   if (!candidate) return "";
-  if (dateOnly && !/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return "";
-  return Number.isNaN(Date.parse(dateOnly ? `${candidate}T12:00:00Z` : candidate)) ? "" : candidate;
+  return (dateOnly ? isValidDateKey(candidate) : isValidDateValue(candidate)) ? candidate : "";
 }
 
 function optionalUrl(value: unknown) {
-  const candidate = text(value, 500);
-  if (!candidate) return undefined;
-  try {
-    const url = new URL(candidate);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : undefined;
-  } catch { return undefined; }
+  return normalizeHTTPSURL(value);
 }
 
 function project(value: unknown): Project | null {
@@ -101,16 +96,16 @@ function settings(value: unknown): WorkspaceSettings {
 export function parseWorkspace(value: unknown): Workspace | null {
   const candidate = record(value);
   if (!candidate || !Array.isArray(candidate.projects) || !Array.isArray(candidate.tasks) || !Array.isArray(candidate.activity)) return null;
-  const projects = candidate.projects.slice(0, 1000).flatMap((item) => project(item) ?? []);
+  const projects = uniqueById(candidate.projects.slice(0, 1000).flatMap((item) => project(item) ?? []));
   const projectIds = new Set(projects.map((item) => item.id));
   return {
     projects,
-    tasks: candidate.tasks.slice(0, 5000).flatMap((item) => task(item, projectIds) ?? []),
-    activity: candidate.activity.slice(0, 500).flatMap((item) => activity(item) ?? []),
-    reviews: Array.isArray(candidate.reviews) ? candidate.reviews.slice(0, 52).flatMap((item) => review(item) ?? []) : [],
-    inbox: Array.isArray(candidate.inbox) ? candidate.inbox.slice(0, 1000).flatMap((item) => inboxItem(item) ?? []) : [],
+    tasks: uniqueById(candidate.tasks.slice(0, 5000).flatMap((item) => task(item, projectIds) ?? [])),
+    activity: uniqueById(candidate.activity.slice(0, 500).flatMap((item) => activity(item) ?? [])),
+    reviews: Array.isArray(candidate.reviews) ? uniqueById(candidate.reviews.slice(0, 52).flatMap((item) => review(item) ?? [])) : [],
+    inbox: Array.isArray(candidate.inbox) ? uniqueById(candidate.inbox.slice(0, 1000).flatMap((item) => inboxItem(item) ?? [])) : [],
     settings: settings(candidate.settings),
-    notes: Array.isArray(candidate.notes) ? candidate.notes.slice(0, 5000).flatMap((item) => note(item, projectIds) ?? []) : [],
+    notes: Array.isArray(candidate.notes) ? uniqueById(candidate.notes.slice(0, 5000).flatMap((item) => note(item, projectIds) ?? [])) : [],
   };
 }
 

@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { contactDatabase } from "@/lib/contact-inquiries";
 import { getConsultationPlaybook } from "@/lib/consultation-playbooks";
+import { isValidDateKey } from "@/lib/date-time";
 import { createPagination, normalizeCount } from "@/lib/pagination";
+import { isValidEmailAddress } from "@/lib/semantic-validation";
 import type { ServiceSlug } from "@/lib/services";
 
 export const consultationStatuses = ["draft", "discovery", "scoped", "archived"] as const;
@@ -41,16 +43,21 @@ export function parseConsultationInput(value: unknown): ConsultationInput | null
   }
   const status = shortText(candidate.status, 20);
   const consultationDate = shortText(candidate.consultationDate, 10);
+  const clientName = shortText(candidate.clientName, 160);
+  const business = shortText(candidate.business, 200);
+  const email = typeof candidate.email === "string" ? candidate.email.trim().toLowerCase() : "";
   const leadId = candidate.leadId === null || candidate.leadId === undefined ? null : Number(candidate.leadId);
   if (!consultationStatuses.includes(status as ConsultationStatus)) return null;
-  if (consultationDate && !/^\d{4}-\d{2}-\d{2}$/.test(consultationDate)) return null;
+  if (consultationDate && !isValidDateKey(consultationDate)) return null;
+  if (!clientName && !business) return null;
+  if (email && !isValidEmailAddress(email)) return null;
   if (leadId !== null && (!Number.isSafeInteger(leadId) || leadId < 1)) return null;
   return {
     leadId,
     serviceSlug: playbook.serviceSlug,
-    clientName: shortText(candidate.clientName, 160),
-    business: shortText(candidate.business, 200),
-    email: shortText(candidate.email, 320),
+    clientName,
+    business,
+    email,
     consultationDate,
     status: status as ConsultationStatus,
     responses,

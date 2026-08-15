@@ -46,6 +46,32 @@ describe("marketing workspace validation", () => {
     expect(normalizeMarketingWorkspace({ prospects: [], activities: [] })).toBeNull();
     expect(normalizeMarketingWorkspace(null)).toBeNull();
   });
+  test("sanitizes impossible dates, unsafe links, and invalid optional email", () => {
+    const workspace = normalizeMarketingWorkspace({
+      campaignStart: "2026-02-30",
+      prospects: [{ id: "p1", company: "Example", website: "http://example.com", email: "invalid", nextActionAt: "2026-02-30", createdAt: "2026-02-30T12:00:00.000Z" }],
+      activities: [],
+      content: [{ id: "c1", title: "Post", publishAt: "2026-13-01" }],
+    });
+    expect(workspace?.campaignStart).toBe("");
+    expect(workspace?.prospects[0].website).toBe("");
+    expect(workspace?.prospects[0].email).toBe("");
+    expect(workspace?.prospects[0].nextActionAt).toBe("");
+    expect(workspace?.prospects[0].createdAt.startsWith("2026-02-30")).toBeFalse();
+    expect(workspace?.content[0].publishAt).toBe("");
+  });
+  test("deduplicates prospect, activity, and content identifiers", () => {
+    const now = "2026-08-10T12:00:00.000Z";
+    const workspace = normalizeMarketingWorkspace({
+      campaignStart: "",
+      prospects: [{ id: "p1", company: "First" }, { id: "p1", company: "Second" }],
+      activities: [{ id: "a1", prospectId: "p1", outcome: "First", createdAt: now }, { id: "a1", prospectId: "p1", outcome: "Second", createdAt: now }],
+      content: [{ id: "c1", title: "First" }, { id: "c1", title: "Second" }],
+    });
+    expect(workspace?.prospects.map((item) => item.company)).toEqual(["First"]);
+    expect(workspace?.activities.map((item) => item.outcome)).toEqual(["First"]);
+    expect(workspace?.content.map((item) => item.title)).toEqual(["First"]);
+  });
   test("starts the campaign without deleting existing prospects or activity", () => {
     const prospect = { id: "p1", company: "Example Shop", website: "", contactName: "", contactTitle: "", email: "", phone: "", location: "", segment: "other" as const, stage: "target" as const, source: "direct-outreach" as const, operationalSignals: "", fitScore: 3, nextAction: "", nextActionAt: "", notes: "", createdAt: "2026-08-01T00:00:00.000Z", updatedAt: "2026-08-01T00:00:00.000Z" };
     const activity = { id: "a1", prospectId: "p1", type: "note" as const, outcome: "Qualified", value: 0, createdAt: "2026-08-01T00:00:00.000Z" };

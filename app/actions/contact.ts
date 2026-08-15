@@ -8,6 +8,7 @@ import { contactDatabase } from "@/lib/contact-inquiries";
 import { recordConversionEvent } from "@/lib/conversion-analytics";
 import { sendLeadNotification } from "@/lib/lead-notification";
 import { hashedRequestAddress } from "@/lib/request-privacy";
+import { isValidEmailAddress } from "@/lib/semantic-validation";
 
 export type ContactState = {
   status: "idle" | "success" | "error";
@@ -24,7 +25,7 @@ export async function submitContact(_: ContactState, formData: FormData): Promis
   if (website) return { status: "success", message: "Thanks—your message is in the queue." };
 
   const name = text(formData, "name", 100);
-  const email = text(formData, "email", 180).toLowerCase();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 181);
   const company = text(formData, "company", 120);
   const projectType = text(formData, "projectType", 80);
   const budget = text(formData, "budget", 80);
@@ -32,7 +33,7 @@ export async function submitContact(_: ContactState, formData: FormData): Promis
   const errors: ContactState["errors"] = {};
 
   if (name.length < 2) errors.name = "Tell me what to call you.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Enter a valid email address.";
+  if (!isValidEmailAddress(email, 180)) errors.email = "Enter a valid email address.";
   if (message.length < 20) errors.message = "Give me at least a few details about the problem.";
   if (Object.keys(errors).length) return { status: "error", message: "Check the highlighted fields.", errors };
 
