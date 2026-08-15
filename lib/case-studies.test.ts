@@ -27,12 +27,26 @@ describe("case study data", () => {
       expect(study.solution.length).toBeGreaterThan(20);
       expect(study.capabilities.length).toBeGreaterThan(2);
       expect(study.technologies.length).toBeGreaterThan(1);
+      expect(study.industries.length).toBeGreaterThan(3);
+      expect(study.applications.length).toBeGreaterThan(2);
+      expect(study.paths.length).toBeGreaterThan(1);
+      expect(study.applications.every((item) => item.title.length > 4 && item.description.length > 30)).toBeTrue();
+      expect(study.paths.every((item) => item.label.length > 4 && item.description.length > 30 && item.href.startsWith("/"))).toBeTrue();
       expect(study.outcome.length).toBeGreaterThan(20);
       expect(study.limitations.length).toBeGreaterThan(20);
       expect(study.media.length).toBeGreaterThan(0);
       expect(study.media.every((item) => item.caption.length > 20 && item.description.length > 20)).toBeTrue();
       expect(study.previewMediaId ? study.media.some((item) => item.id === study.previewMediaId) : true).toBeTrue();
       expect(study.cta.href).toBe("/#contact");
+    }
+  });
+
+  test("positions every project for distinct industries, uses, and service paths", () => {
+    for (const study of caseStudies) {
+      expect(new Set(study.industries).size).toBe(study.industries.length);
+      expect(new Set(study.applications.map(({ title }) => title)).size).toBe(study.applications.length);
+      expect(new Set(study.paths.map(({ href }) => href)).size).toBe(study.paths.length);
+      expect(study.paths.some(({ href }) => href.startsWith("/services/"))).toBeTrue();
     }
   });
 

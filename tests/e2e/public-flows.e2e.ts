@@ -66,6 +66,25 @@ test("service FAQ disclosure remains keyboard operable", async ({ page }) => {
   assertNoErrors();
 });
 
+test("project profiles connect industries and uses to relevant service paths", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const profiles = [
+    { slug: "work-control", service: "/services/workflow-automation" },
+    { slug: "signforge", service: "/services/cnc-signage-systems" },
+    { slug: "shop-inventory", service: "/services/manufacturing-software" },
+  ];
+
+  for (const profile of profiles) {
+    const assertNoErrors = failOnBrowserErrors(page);
+    await page.goto(`/work/${profile.slug}`);
+    await expect(page.getByRole("heading", { name: "Industries and applicable uses" })).toBeVisible();
+    await expect(page.locator(`a[href="${profile.service}"]`)).toBeVisible();
+    await expect(page.locator("article article").first()).toBeVisible();
+    await expectNoHorizontalDocumentOverflow(page);
+    assertNoErrors();
+  }
+});
+
 test("login next parameter cannot create an external navigation target", async ({ page }) => {
   const assertNoErrors = failOnBrowserErrors(page);
   await page.goto("/login?next=https://evil.example/steal");
