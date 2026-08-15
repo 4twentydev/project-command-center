@@ -9,7 +9,10 @@ function failOnBrowserErrors(page: Page) {
 
 test("homepage renders and primary navigation reaches the about page", async ({ page }) => {
   const assertNoErrors = failOnBrowserErrors(page);
-  await page.goto("/");
+  const response = await page.goto("/");
+  expect(response?.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(response?.headers()["permissions-policy"]).toContain("publickey-credentials-get=(self)");
+  expect(response?.headers()["x-content-type-options"]).toBe("nosniff");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Software and automation");
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
   await page.getByRole("link", { name: "About", exact: true }).click();

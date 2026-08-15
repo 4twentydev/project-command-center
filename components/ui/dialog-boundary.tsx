@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 
-const dialogStack: symbol[] = [];
+type DialogEntry = { id: symbol; element: HTMLElement };
+type IsolationState = { ariaHidden: string | null; inert: boolean };
+
+const dialogStack: DialogEntry[] = [];
+let isolationObserver: MutationObserver | null = null;
+let bodyOverflowBeforeDialog: string | null = null;
+let restoreCurrentIsolation: (() => void) | null = null;
 
 const focusableSelector = [
   "a[href]",
@@ -12,6 +18,68 @@ const focusableSelector = [
   "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
+
+export function dialogIsolationTargets(activeDialog: HTMLElement, isolationRoot: HTMLElement = document.body) {
+  const targets: HTMLElement[] = [];
+  let activeBranch: HTMLElement | null = activeDialog;
+
+  while (activeBranch?.parentElement) {
+    const parent: HTMLElement = activeBranch.parentElement;
+    for (const sibling of Array.from(parent.children)) {
+      if (sibling !== activeBranch) targets.push(sibling as HTMLElement);
+    }
+    if (parent === isolationRoot) break;
+    activeBranch = parent;
+  }
+
+  return targets;
+}
+
+export function isolateDialogBackground(activeDialog: HTMLElement, isolationRoot: HTMLElement = document.body) {
+  const isolatedElements = new Map<HTMLElement, IsolationState>();
+  for (const element of dialogIsolationTargets(activeDialog, isolationRoot)) {
+    isolatedElements.set(element, { ariaHidden: element.getAttribute("aria-hidden"), inert: element.inert });
+    element.setAttribute("aria-hidden", "true");
+    element.inert = true;
+  }
+
+  return () => {
+    for (const [element, previous] of isolatedElements) {
+      if (previous.ariaHidden === null) element.removeAttribute("aria-hidden");
+      else element.setAttribute("aria-hidden", previous.ariaHidden);
+      element.inert = previous.inert;
+    }
+  };
+}
+
+function synchronizeDialogIsolation() {
+  restoreCurrentIsolation?.();
+  restoreCurrentIsolation = null;
+  const activeDialog = dialogStack.findLast(({ element }) => element.isConnected)?.element;
+  if (!activeDialog) return;
+  restoreCurrentIsolation = isolateDialogBackground(activeDialog, document.body);
+}
+
+function startDialogIsolation() {
+  if (dialogStack.length === 1) {
+    bodyOverflowBeforeDialog = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    isolationObserver = new MutationObserver(synchronizeDialogIsolation);
+    isolationObserver.observe(document.body, { childList: true, subtree: true });
+  }
+  synchronizeDialogIsolation();
+}
+
+function stopDialogIsolation() {
+  synchronizeDialogIsolation();
+  if (dialogStack.length) return;
+  isolationObserver?.disconnect();
+  isolationObserver = null;
+  restoreCurrentIsolation?.();
+  restoreCurrentIsolation = null;
+  document.body.style.overflow = bodyOverflowBeforeDialog ?? "";
+  bodyOverflowBeforeDialog = null;
+}
 
 export function DialogBoundary({
   label,
@@ -31,14 +99,19 @@ export function DialogBoundary({
 
   useEffect(() => {
     const dialogId = Symbol(label);
-    dialogStack.push(dialogId);
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
-    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? []).filter((element) => !element.hidden);
-    const frame = window.requestAnimationFrame(() => focusable()[0]?.focus());
+    if (!dialog) return;
+    const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter((element) => !element.hidden && !element.closest("[inert]"));
+    dialogStack.push({ id: dialogId, element: dialog });
+    if (!dialog.contains(document.activeElement)) (focusable()[0] ?? dialog).focus({ preventScroll: true });
+    startDialogIsolation();
+    const frame = window.requestAnimationFrame(() => {
+      if (dialogStack.at(-1)?.id === dialogId && !dialog.contains(document.activeElement)) (focusable()[0] ?? dialog).focus({ preventScroll: true });
+    });
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (dialogStack.at(-1) !== dialogId) return;
+      if (dialogStack.at(-1)?.id !== dialogId) return;
 
       if (event.key === "Escape") {
         event.preventDefault();
@@ -69,9 +142,10 @@ export function DialogBoundary({
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown);
-      const stackIndex = dialogStack.indexOf(dialogId);
+      const stackIndex = dialogStack.findIndex(({ id }) => id === dialogId);
       if (stackIndex !== -1) dialogStack.splice(stackIndex, 1);
-      previouslyFocused?.focus();
+      stopDialogIsolation();
+      previouslyFocused?.focus({ preventScroll: true });
     };
   }, [label]);
 
