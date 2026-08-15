@@ -1,5 +1,7 @@
 # 4TWENTY.DEV + WORK//CTRL
 
+[![CI](https://github.com/4twentydev/project-command-center/actions/workflows/ci.yml/badge.svg)](https://github.com/4twentydev/project-command-center/actions/workflows/ci.yml)
+
 A dark-first public studio site and private home base for software, CNC, business, and experimental projects. Built with Next.js App Router, TypeScript, Tailwind CSS v4, shadcn/ui conventions, Bun, Neon, Better Auth passkeys, and Vercel.
 
 ## Start locally
