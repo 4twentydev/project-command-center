@@ -7,6 +7,16 @@ function failOnBrowserErrors(page: Page) {
   return () => expect(failures).toEqual([]);
 }
 
+async function expectNoHorizontalDocumentOverflow(page: Page) {
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    document: document.documentElement.scrollWidth,
+    body: document.body.scrollWidth,
+  }));
+  expect(dimensions.document, `document width at ${dimensions.viewport}px`).toBeLessThanOrEqual(dimensions.viewport);
+  expect(dimensions.body, `body width at ${dimensions.viewport}px`).toBeLessThanOrEqual(dimensions.viewport);
+}
+
 test("homepage renders and primary navigation reaches the about page", async ({ page }) => {
   const assertNoErrors = failOnBrowserErrors(page);
   const response = await page.goto("/");
@@ -36,11 +46,13 @@ test("mobile layout keeps the primary owner entry point and audit navigation usa
   await page.setViewportSize({ width: 390, height: 844 });
   const assertNoErrors = failOnBrowserErrors(page);
   await page.goto("/");
+  await expectNoHorizontalDocumentOverflow(page);
   await expect(page.getByRole("link", { name: "Command Center" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Contact", exact: true })).toBeHidden();
   await page.getByRole("link", { name: "Book a workflow audit" }).first().click();
   await expect(page).toHaveURL(/\/workflow-audit$/);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("work is getting stuck");
+  await expectNoHorizontalDocumentOverflow(page);
   assertNoErrors();
 });
 
