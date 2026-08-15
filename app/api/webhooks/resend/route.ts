@@ -1,32 +1,55 @@
 import { Resend } from "resend";
 import { contactDatabase, type NotificationStatus } from "@/lib/contact-inquiries";
+import { createOperationalContext, jsonWithRequestId, withOperationTimeout } from "@/lib/operational-observability";
+import { readRequestTextWithLimit } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 
+const webhookBodyLimit = 256_000;
 const trackedEvents = new Map<string, NotificationStatus>([
   ["email.sent", "sent"], ["email.delivered", "delivered"], ["email.bounced", "bounced"],
   ["email.complained", "complained"], ["email.failed", "failed"], ["email.suppressed", "failed"],
 ]);
 
 export async function POST(request: Request) {
+  const context = createOperationalContext(request, "/api/webhooks/resend");
   const apiKey = process.env.RESEND_API_KEY;
   const webhookSecret = process.env.RESEND_WEBHOOK_SECRET;
-  if (!apiKey || !webhookSecret) return new Response("Webhook not configured", { status: 503 });
-  const payload = await request.text();
+  if (!apiKey || !webhookSecret) {
+    context.failed(503, { code: "not_configured" }, { dependency: "resend" });
+    return jsonWithRequestId(context, { error: "Webhook not configured" }, { status: 503 });
+  }
+  const body = await readRequestTextWithLimit(request, webhookBodyLimit);
+  if (!body.ok) {
+    context.completed(413, { status: "body_too_large" });
+    return jsonWithRequestId(context, { error: "Webhook payload is too large" }, { status: 413 });
+  }
   const id = request.headers.get("svix-id");
   const timestamp = request.headers.get("svix-timestamp");
   const signature = request.headers.get("svix-signature");
-  if (!id || !timestamp || !signature) return new Response("Missing signature", { status: 400 });
+  if (!id || !timestamp || !signature) {
+    context.completed(400, { status: "missing_signature" });
+    return jsonWithRequestId(context, { error: "Missing signature" }, { status: 400 });
+  }
+
+  let event: ReturnType<Resend["webhooks"]["verify"]>;
   try {
-    const event = new Resend(apiKey).webhooks.verify({ payload, headers: { id, timestamp, signature }, webhookSecret });
+    event = new Resend(apiKey).webhooks.verify({ payload: body.value, headers: { id, timestamp, signature }, webhookSecret });
+  } catch (error) {
+    context.failed(400, error, { dependency: "resend", operation: "verify_webhook" });
+    return jsonWithRequestId(context, { error: "Invalid signature" }, { status: 400 });
+  }
+
+  try {
     const status = trackedEvents.get(event.type);
     if (status && "email_id" in event.data) {
       const sql = await contactDatabase();
-      await sql`UPDATE contact_inquiries SET notification_status = ${status}, updated_at = NOW() WHERE notification_id = ${event.data.email_id}`;
+      await withOperationTimeout(sql`UPDATE contact_inquiries SET notification_status = ${status}, updated_at = NOW() WHERE notification_id = ${event.data.email_id}`);
     }
-    return Response.json({ received: true });
+    context.completed(200, { status: "ok" });
+    return jsonWithRequestId(context, { received: true });
   } catch (error) {
-    console.error("Invalid Resend webhook", error);
-    return new Response("Invalid signature", { status: 400 });
+    context.failed(503, error, { dependency: "database", operation: "record_email_status" });
+    return jsonWithRequestId(context, { error: "Webhook status could not be recorded" }, { status: 503 });
   }
 }

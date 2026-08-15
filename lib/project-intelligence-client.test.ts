@@ -4,6 +4,7 @@ import { fetchProjectIntelligence, markProjectIntelligenceRefreshing, mergeProje
 const intelligence = (fetchedAt = "2026-08-15T18:30:00.000Z"): ProjectIntelligence => ({
   github: { available: true, latestCommit: { sha: "abc1234", message: "Ship it", url: "https://github.com/example/repo/commit/abc1234" }, pullRequests: [], issues: [] },
   vercel: { reachable: true, state: "READY", url: "example.vercel.app", checkedAt: fetchedAt },
+  integrations: { github: { status: "ok", authenticated: true }, vercel: { status: "ok", authenticated: true } },
   fetchedAt,
 });
 
@@ -23,6 +24,7 @@ describe("project intelligence refresh", () => {
     await expect(fetchProjectIntelligence({ id: "one", repo: "https://github.com/example/repo" }, async () => new Response(null, { status: 503 }))).rejects.toThrow();
     await expect(fetchProjectIntelligence({ id: "one", repo: "https://github.com/example/repo" }, async () => Response.json({ github: { pullRequests: "invalid" }, fetchedAt: "today" }))).rejects.toThrow();
     expect(parseProjectIntelligence({ github: null, vercel: null, fetchedAt: "not-a-date" })).toBeNull();
+    expect(parseProjectIntelligence({ github: null, vercel: null, integrations: { github: { status: "mystery", authenticated: false }, vercel: { status: "ok", authenticated: true } }, fetchedAt: new Date().toISOString() })).toBeNull();
   });
 
   test("retains last-known data for failed projects while accepting successful siblings", () => {
@@ -39,5 +41,12 @@ describe("project intelligence refresh", () => {
     expect(merged.failed).toEqual({ data: previous, status: "stale" });
     expect(merged.successful).toEqual({ data: updated, status: "fresh" });
     expect(merged.new).toEqual({ status: "error" });
+  });
+
+  test("marks partial upstream results as degraded instead of fresh", () => {
+    const partial = intelligence();
+    partial.integrations.github = { status: "rate_limited", authenticated: true, rateLimit: { remaining: 0, retryAfterSeconds: 60 } };
+    const merged = mergeProjectIntelligenceResults({}, ["partial"], [{ status: "fulfilled", value: partial }]);
+    expect(merged.partial).toEqual({ data: partial, status: "degraded" });
   });
 });

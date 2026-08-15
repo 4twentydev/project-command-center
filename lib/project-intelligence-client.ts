@@ -1,12 +1,16 @@
 export type ProjectIntelligence = {
   github: null | { available: boolean; private?: boolean; defaultBranch?: string; openIssues?: number; pushedAt?: string; latestCommit?: null | { sha: string; message: string; url: string; date?: string }; pullRequests?: Array<{ number: number; title: string; url: string; draft: boolean; updatedAt: string }>; issues?: Array<{ number: number; title: string; url: string; updatedAt: string }> };
   vercel: null | { reachable: boolean; state: string | null; target?: string | null; createdAt?: number; url: string; checkedAt: string };
+  integrations: Record<"github" | "vercel", IntegrationReport>;
   fetchedAt: string;
 };
 
+export type IntegrationStatus = "ok" | "not_configured" | "unauthorized" | "rate_limited" | "unavailable" | "timeout" | "invalid_response";
+export type IntegrationReport = { status: IntegrationStatus; authenticated: boolean; httpStatus?: number; rateLimit?: { limit?: number; remaining?: number; resetAt?: string; retryAfterSeconds?: number }; failures?: string[] };
+
 export type ProjectIntelligenceEntry = {
   data?: ProjectIntelligence;
-  status: "refreshing" | "fresh" | "stale" | "error";
+  status: "refreshing" | "fresh" | "degraded" | "stale" | "error";
 };
 
 type LinkedProject = { id: string; repo?: string; deployment?: string };
@@ -29,8 +33,29 @@ function validVercel(value: unknown) {
   return value === null || isRecord(value) && typeof value.reachable === "boolean" && (typeof value.state === "string" || value.state === null) && typeof value.url === "string" && typeof value.checkedAt === "string";
 }
 
+const integrationStatuses = new Set<IntegrationStatus>(["ok", "not_configured", "unauthorized", "rate_limited", "unavailable", "timeout", "invalid_response"]);
+
+function validIntegrationReport(value: unknown) {
+  if (!isRecord(value) || typeof value.status !== "string" || !integrationStatuses.has(value.status as IntegrationStatus) || typeof value.authenticated !== "boolean") return false;
+  if (value.httpStatus !== undefined && (!Number.isInteger(value.httpStatus) || Number(value.httpStatus) < 100 || Number(value.httpStatus) > 599)) return false;
+  if (value.failures !== undefined && (!Array.isArray(value.failures) || !value.failures.every((item) => typeof item === "string"))) return false;
+  if (value.rateLimit !== undefined) {
+    if (!isRecord(value.rateLimit)) return false;
+    for (const field of ["limit", "remaining", "retryAfterSeconds"] as const) {
+      const item = value.rateLimit[field];
+      if (item !== undefined && (!Number.isSafeInteger(item) || Number(item) < 0)) return false;
+    }
+    if (value.rateLimit.resetAt !== undefined && (typeof value.rateLimit.resetAt !== "string" || Number.isNaN(Date.parse(value.rateLimit.resetAt)))) return false;
+  }
+  return true;
+}
+
+function validIntegrations(value: unknown) {
+  return isRecord(value) && validIntegrationReport(value.github) && validIntegrationReport(value.vercel);
+}
+
 export function parseProjectIntelligence(value: unknown): ProjectIntelligence | null {
-  if (!isRecord(value) || !validGitHub(value.github) || !validVercel(value.vercel) || typeof value.fetchedAt !== "string" || Number.isNaN(Date.parse(value.fetchedAt))) return null;
+  if (!isRecord(value) || !validGitHub(value.github) || !validVercel(value.vercel) || !validIntegrations(value.integrations) || typeof value.fetchedAt !== "string" || Number.isNaN(Date.parse(value.fetchedAt))) return null;
   return value as ProjectIntelligence;
 }
 
@@ -59,7 +84,10 @@ export function mergeProjectIntelligenceResults(
   const next = { ...current };
   projectIds.forEach((id, index) => {
     const result = results[index];
-    if (result?.status === "fulfilled") next[id] = { data: result.value, status: "fresh" };
+    if (result?.status === "fulfilled") {
+      const degraded = Object.values(result.value.integrations).some((report) => !["ok", "not_configured"].includes(report.status));
+      next[id] = { data: result.value, status: degraded ? "degraded" : "fresh" };
+    }
     else next[id] = current[id]?.data ? { data: current[id].data, status: "stale" } : { status: "error" };
   });
   return next;
