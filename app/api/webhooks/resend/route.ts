@@ -1,16 +1,12 @@
 import { Resend } from "resend";
-import { contactDatabase, type NotificationStatus } from "@/lib/contact-inquiries";
+import { contactDatabase } from "@/lib/contact-inquiries";
 import { createOperationalContext, jsonWithRequestId, withOperationTimeout } from "@/lib/operational-observability";
 import { readRequestTextWithLimit } from "@/lib/request-body";
+import { notificationStatusForResendEvent } from "@/lib/resend-webhook";
 
 export const runtime = "nodejs";
 
 const webhookBodyLimit = 256_000;
-const trackedEvents = new Map<string, NotificationStatus>([
-  ["email.sent", "sent"], ["email.delivered", "delivered"], ["email.bounced", "bounced"],
-  ["email.complained", "complained"], ["email.failed", "failed"], ["email.suppressed", "failed"],
-]);
-
 export async function POST(request: Request) {
   const context = createOperationalContext(request, "/api/webhooks/resend");
   const apiKey = process.env.RESEND_API_KEY;
@@ -41,7 +37,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const status = trackedEvents.get(event.type);
+    const status = notificationStatusForResendEvent(event.type);
     if (status && "email_id" in event.data) {
       const sql = await contactDatabase();
       await withOperationTimeout(sql`UPDATE contact_inquiries SET notification_status = ${status}, updated_at = NOW() WHERE notification_id = ${event.data.email_id}`);

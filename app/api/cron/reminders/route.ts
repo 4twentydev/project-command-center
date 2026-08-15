@@ -1,8 +1,8 @@
 import { neon } from "@neondatabase/serverless";
 import type { NextRequest } from "next/server";
-import { dateKeyInTimeZone } from "@/lib/date-time";
 import { createOperationalContext, jsonWithRequestId, withOperationTimeout } from "@/lib/operational-observability";
 import { sendPush, type StoredPushSubscription } from "@/lib/push";
+import { createReminderPlan, deliverReminderNotifications } from "@/lib/reminder-delivery";
 import { parseWorkspace } from "@/lib/workspace-validation";
 
 export const runtime = "nodejs";
@@ -33,32 +33,18 @@ export async function GET(request: NextRequest) {
       context.failed(503, { code: "invalid_workspace" }, { dependency: "database" });
       return jsonWithRequestId(context, { error: "Workspace data is invalid" }, { status: 503 });
     }
-    const today = dateKeyInTimeZone(new Date(), workspace.settings?.timezone);
-    const due = workspace.tasks.filter((task) => !task.done && task.dueDate && task.dueDate <= today);
-    if (!due.length) {
+    const plan = createReminderPlan(workspace);
+    if (!plan) {
       context.completed(200, { status: "ok", itemCount: 0 });
-      return jsonWithRequestId(context, { ok: true, sent: 0, failed: 0, tasks: 0, date: today });
+      return jsonWithRequestId(context, { ok: true, sent: 0, failed: 0, tasks: 0 });
     }
-    const overdue = due.filter((task) => task.dueDate && task.dueDate < today).length;
-    const preview = due.slice(0, 3).map((task) => task.title).join(" · ");
-    const outcomes = await Promise.all(subscriptionRows.map(async (row) => {
-      try {
-        await sendPush(row.subscription as StoredPushSubscription, { title: overdue ? `${overdue} overdue · ${due.length} due` : `${due.length} task${due.length === 1 ? "" : "s"} due today`, body: preview, url: "/dashboard#tasks" });
-        return "sent" as const;
-      } catch (error) {
-        const statusCode = Number((error as { statusCode?: unknown }).statusCode);
-        if (statusCode === 404 || statusCode === 410) {
-          await withOperationTimeout(sql`DELETE FROM push_subscriptions WHERE endpoint = ${row.endpoint}`);
-          return "removed" as const;
-        }
-        return "failed" as const;
-      }
-    }));
-    const sent = outcomes.filter((outcome) => outcome === "sent").length;
-    const failed = outcomes.filter((outcome) => outcome === "failed").length;
-    const removed = outcomes.filter((outcome) => outcome === "removed").length;
+    const { sent, failed, removed } = await deliverReminderNotifications(
+      subscriptionRows.map((row) => ({ endpoint: String(row.endpoint), subscription: row.subscription as StoredPushSubscription })),
+      plan.notification,
+      { send: sendPush, remove: (endpoint) => withOperationTimeout(sql`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint}`) },
+    );
     context.completed(200, { status: failed ? "partial" : "ok", itemCount: sent });
-    return jsonWithRequestId(context, { ok: failed === 0, sent, failed, removed, tasks: due.length, date: today });
+    return jsonWithRequestId(context, { ok: failed === 0, sent, failed, removed, tasks: plan.taskCount, date: plan.date });
   } catch (error) {
     context.failed(503, error, { dependency: "database", operation: "daily_reminders" });
     return jsonWithRequestId(context, { error: "Reminder processing is temporarily unavailable" }, { status: 503 });
