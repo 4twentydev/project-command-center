@@ -21,6 +21,7 @@ import {
   type MarketingSource, type ProspectSegment,
 } from "@/lib/marketing-plan";
 import { beginMarketingCampaign, type MarketingActivity, type MarketingContentItem, type MarketingProspect, type MarketingWorkspace } from "@/lib/marketing-workspace";
+import { addDaysToDateKey, dateKeyInTimeZone, daysBetweenDateKeys, isValidDateKey, normalizeTimeZone } from "@/lib/date-time";
 import { cn } from "@/lib/utils";
 
 type MarketingView = "today" | "pipeline" | "content" | "plan" | "templates" | "partners";
@@ -41,27 +42,28 @@ function newProspect(): MarketingProspect {
 }
 
 function weekBounds(campaignStart: string, week: number) {
-  if (!campaignStart) return null;
-  const start = new Date(`${campaignStart}T12:00:00`); start.setDate(start.getDate() + (week - 1) * 7);
-  const end = new Date(start); end.setDate(end.getDate() + 7);
+  if (!isValidDateKey(campaignStart)) return null;
+  const start = addDaysToDateKey(campaignStart, (week - 1) * 7);
+  const end = addDaysToDateKey(start, 7);
   return { start, end };
 }
 
-function inWeek(value: string, campaignStart: string, week: number) {
+function inWeek(value: string, campaignStart: string, week: number, timeZone: string) {
   const bounds = weekBounds(campaignStart, week); if (!bounds || !value) return false;
-  const date = new Date(value); return date >= bounds.start && date < bounds.end;
+  const instant = new Date(value);
+  const dateKey = isValidDateKey(value) ? value : Number.isNaN(instant.getTime()) ? "" : dateKeyInTimeZone(instant, timeZone);
+  return dateKey >= bounds.start && dateKey < bounds.end;
 }
 
-function campaignWeek(campaignStart: string) {
-  if (!campaignStart) return 1;
-  const elapsed = Date.now() - new Date(`${campaignStart}T12:00:00`).getTime();
-  return Math.max(1, Math.min(12, Math.floor(elapsed / 604800000) + 1));
+function campaignWeek(campaignStart: string, today: string) {
+  if (!isValidDateKey(campaignStart)) return 1;
+  return Math.max(1, Math.min(12, Math.floor(daysBetweenDateKeys(campaignStart, today) / 7) + 1));
 }
 
-function scoreFor(workspace: MarketingWorkspace, week: number) {
-  const activities = workspace.activities.filter((activity) => inWeek(activity.createdAt, workspace.campaignStart, week));
+function scoreFor(workspace: MarketingWorkspace, week: number, timeZone: string) {
+  const activities = workspace.activities.filter((activity) => inWeek(activity.createdAt, workspace.campaignStart, week, timeZone));
   return {
-    accounts: workspace.prospects.filter((prospect) => inWeek(prospect.createdAt, workspace.campaignStart, week)).length,
+    accounts: workspace.prospects.filter((prospect) => inWeek(prospect.createdAt, workspace.campaignStart, week, timeZone)).length,
     outreach: activities.filter((item) => ["call", "voicemail", "email", "linkedin"].includes(item.type)).length,
     conversations: activities.filter((item) => item.type === "conversation").length,
     fitCalls: activities.filter((item) => item.type === "fit-call").length,
@@ -70,7 +72,7 @@ function scoreFor(workspace: MarketingWorkspace, week: number) {
     paidAudits: activities.filter((item) => item.type === "audit-paid").length,
     paidClients: activities.filter((item) => item.type === "client-won").length,
     bookedRevenue: activities.filter((item) => ["audit-paid", "client-won"].includes(item.type)).reduce((sum, item) => sum + item.value, 0),
-    posts: workspace.content.filter((item) => item.status === "published" && inWeek(item.publishAt || item.updatedAt, workspace.campaignStart, week)).length,
+    posts: workspace.content.filter((item) => item.status === "published" && inWeek(item.publishAt || item.updatedAt, workspace.campaignStart, week, timeZone)).length,
   };
 }
 
@@ -94,7 +96,7 @@ function ContentDialog({ item, onClose, onSave }: { item: MarketingContentItem; 
   return <div className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-background/85 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><Card className="w-full max-w-2xl"><CardContent className="p-6"><div className="flex items-start justify-between"><div><div className="font-mono text-[9px] uppercase tracking-[0.2em] text-primary">Week {draft.week} content</div><h2 className="mt-2 text-xl font-semibold">Edit content item</h2></div><Button variant="ghost" size="icon" onClick={onClose} aria-label="Close content editor"><X /></Button></div><form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); if (!draft.title.trim()) return; onSave({ ...draft, title: draft.title.trim(), updatedAt: new Date().toISOString() }); onClose(); }}><label className="text-xs font-medium">Topic<Input className="mt-2" value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label><div className="grid gap-4 sm:grid-cols-3"><label className="text-xs font-medium">Week<select className={cn(selectClass, "mt-2")} value={draft.week} onChange={(event) => setDraft({ ...draft, week: Number(event.target.value) })}>{launchWeeks.map((week) => <option key={week.week} value={week.week}>Week {week.week}</option>)}</select></label><label className="text-xs font-medium">Format<select className={cn(selectClass, "mt-2")} value={draft.format} onChange={(event) => setDraft({ ...draft, format: event.target.value as MarketingContentItem["format"] })}>{["linkedin-post", "photo-post", "case-note", "collateral"].map((value) => <option key={value}>{value}</option>)}</select></label><label className="text-xs font-medium">Status<select className={cn(selectClass, "mt-2")} value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value as ContentStatus })}>{contentStatuses.map((value) => <option key={value}>{value}</option>)}</select></label></div><label className="text-xs font-medium">Publish date<Input className="mt-2" type="date" value={draft.publishAt} onChange={(event) => setDraft({ ...draft, publishAt: event.target.value })} /></label><label className="text-xs font-medium">Asset or source note<Textarea className="mt-2 min-h-20" value={draft.asset} onChange={(event) => setDraft({ ...draft, asset: event.target.value })} placeholder="Approved photo, screenshot, diagram, or source needed" /></label><label className="text-xs font-medium">Call to action<Input className="mt-2" value={draft.cta} onChange={(event) => setDraft({ ...draft, cta: event.target.value })} /></label><label className="text-xs font-medium">Result<Textarea className="mt-2 min-h-20" value={draft.result} onChange={(event) => setDraft({ ...draft, result: event.target.value })} placeholder="Conversations, profile visits, qualified action, or lesson" /></label><div className="flex justify-end gap-2 pt-3"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button type="submit"><Check />Save content</Button></div></form></CardContent></Card></div>;
 }
 
-export function MarketingOperations({ initialWorkspace, initialUpdatedAt, storageAvailable }: { initialWorkspace: MarketingWorkspace; initialUpdatedAt: string | null; storageAvailable: boolean }) {
+export function MarketingOperations({ initialWorkspace, initialUpdatedAt, storageAvailable, timeZone: timeZoneValue }: { initialWorkspace: MarketingWorkspace; initialUpdatedAt: string | null; storageAvailable: boolean; timeZone: string }) {
   const [workspace, setWorkspace] = useState(initialWorkspace);
   const [view, setView] = useState<MarketingView>("today"); const [sync, setSync] = useState<SyncState>(storageAvailable ? "idle" : "error");
   const [prospectEditor, setProspectEditor] = useState<MarketingProspect | null>(null); const [activityProspect, setActivityProspect] = useState<MarketingProspect | null | undefined>(); const [contentEditor, setContentEditor] = useState<MarketingContentItem | null>(null);
@@ -102,8 +104,9 @@ export function MarketingOperations({ initialWorkspace, initialUpdatedAt, storag
   const workspaceVersionRef = useRef(initialUpdatedAt);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const saveGenerationRef = useRef(0);
-  const currentWeek = campaignWeek(workspace.campaignStart); const score = scoreFor(workspace, currentWeek); const totalScore = Array.from({ length: 12 }, (_, index) => scoreFor(workspace, index + 1)).reduce((total, item) => ({ accounts: total.accounts + item.accounts, outreach: total.outreach + item.outreach, conversations: total.conversations + item.conversations, fitCalls: total.fitCalls + item.fitCalls, paidAudits: total.paidAudits + item.paidAudits, paidClients: total.paidClients + item.paidClients, bookedRevenue: total.bookedRevenue + item.bookedRevenue }), { accounts: 0, outreach: 0, conversations: 0, fitCalls: 0, paidAudits: 0, paidClients: 0, bookedRevenue: 0 });
-  const activeWeek = launchWeeks[currentWeek - 1]; const today = new Date().toISOString().slice(0, 10);
+  const timeZone = normalizeTimeZone(timeZoneValue); const today = dateKeyInTimeZone(new Date(), timeZone);
+  const currentWeek = campaignWeek(workspace.campaignStart, today); const score = scoreFor(workspace, currentWeek, timeZone); const totalScore = Array.from({ length: 12 }, (_, index) => scoreFor(workspace, index + 1, timeZone)).reduce((total, item) => ({ accounts: total.accounts + item.accounts, outreach: total.outreach + item.outreach, conversations: total.conversations + item.conversations, fitCalls: total.fitCalls + item.fitCalls, paidAudits: total.paidAudits + item.paidAudits, paidClients: total.paidClients + item.paidClients, bookedRevenue: total.bookedRevenue + item.bookedRevenue }), { accounts: 0, outreach: 0, conversations: 0, fitCalls: 0, paidAudits: 0, paidClients: 0, bookedRevenue: 0 });
+  const activeWeek = launchWeeks[currentWeek - 1];
   const dueProspects = workspace.prospects.filter((item) => item.nextActionAt && item.nextActionAt <= today && !["won", "lost"].includes(item.stage)).sort((a, b) => a.nextActionAt.localeCompare(b.nextActionAt));
   const filteredProspects = workspace.prospects.filter((item) => (stageFilter === "all" || item.stage === stageFilter) && [item.company, item.contactName, item.location, item.operationalSignals].join(" ").toLowerCase().includes(search.toLowerCase())).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
@@ -131,7 +134,7 @@ export function MarketingOperations({ initialWorkspace, initialUpdatedAt, storag
   }
 
   function startCampaign() {
-    void persist(beginMarketingCampaign(workspace));
+    void persist(beginMarketingCampaign(workspace, new Date(), timeZone));
   }
 
   function saveProspect(prospect: MarketingProspect) { void persist({ ...workspace, prospects: [prospect, ...workspace.prospects.filter((item) => item.id !== prospect.id)] }); }

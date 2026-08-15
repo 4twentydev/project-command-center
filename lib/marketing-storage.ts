@@ -1,5 +1,6 @@
 import { contactDatabase } from "@/lib/contact-inquiries";
 import { emptyMarketingWorkspace, normalizeMarketingWorkspace, type MarketingWorkspace } from "@/lib/marketing-workspace";
+import { defaultTimeZone, normalizeTimeZone } from "@/lib/date-time";
 
 const workspaceId = "primary";
 
@@ -8,6 +9,12 @@ export async function getMarketingWorkspace() {
   const rows = await sql`SELECT data, updated_at::text AS version FROM marketing_workspaces WHERE id = ${workspaceId} LIMIT 1`;
   if (!rows.length) return { workspace: emptyMarketingWorkspace, updatedAt: null };
   return { workspace: normalizeMarketingWorkspace(rows[0].data) ?? emptyMarketingWorkspace, updatedAt: String(rows[0].version) };
+}
+
+export async function getWorkspaceTimeZone() {
+  const sql = await contactDatabase();
+  const rows = await sql`SELECT data->'settings'->>'timezone' AS timezone FROM workspaces WHERE id = 'primary' LIMIT 1`;
+  return normalizeTimeZone(rows[0]?.timezone, defaultTimeZone);
 }
 
 export async function saveMarketingWorkspace(workspace: MarketingWorkspace, expectedVersion: string | null) {

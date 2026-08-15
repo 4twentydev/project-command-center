@@ -1,5 +1,6 @@
 import { defaultWorkspaceSettings, emptyWorkspace, type ActivityItem, type InboxItem, type ProjectNote, type Task, type WeeklyReview, type Workspace, type WorkspaceSettings } from "@/lib/workspace";
 import type { Project, ProjectKind, ProjectStatus } from "@/lib/projects";
+import { normalizeTimeZone } from "@/lib/date-time";
 
 const projectStatuses = new Set<ProjectStatus>(["Active", "Planning", "Shipped", "Paused"]);
 const projectKinds = new Set<ProjectKind>(["Software", "CNC", "Business", "Experiment"]);
@@ -89,7 +90,7 @@ function settings(value: unknown): WorkspaceSettings {
   const priority = priorities.has(item.defaultTaskPriority as WorkspaceSettings["defaultTaskPriority"]) ? item.defaultTaskPriority as WorkspaceSettings["defaultTaskPriority"] : defaultWorkspaceSettings.defaultTaskPriority;
   return {
     displayName: text(item.displayName, 100) || defaultWorkspaceSettings.displayName,
-    timezone: text(item.timezone, 100) || defaultWorkspaceSettings.timezone,
+    timezone: normalizeTimeZone(text(item.timezone, 100), defaultWorkspaceSettings.timezone),
     githubUsername: text(item.githubUsername, 100) || defaultWorkspaceSettings.githubUsername,
     vercelTeam: text(item.vercelTeam, 100) || defaultWorkspaceSettings.vercelTeam,
     staleProjectDays: Math.max(1, Math.min(365, Number(item.staleProjectDays) || defaultWorkspaceSettings.staleProjectDays)),

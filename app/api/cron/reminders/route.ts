@@ -1,7 +1,8 @@
 import { neon } from "@neondatabase/serverless";
 import type { NextRequest } from "next/server";
 import { sendPush, type StoredPushSubscription } from "@/lib/push";
-import type { Workspace } from "@/lib/workspace";
+import { dateKeyInTimeZone } from "@/lib/date-time";
+import { parseWorkspace } from "@/lib/workspace-validation";
 
 export const runtime = "nodejs";
 
@@ -14,8 +15,9 @@ export async function GET(request: NextRequest) {
     sql`SELECT endpoint, subscription FROM push_subscriptions`,
   ]);
   if (!workspaceRows.length || !subscriptionRows.length) return Response.json({ ok: true, sent: 0, tasks: 0 });
-  const workspace = workspaceRows[0].data as Workspace;
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: workspace.settings?.timezone ?? "America/Denver", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const workspace = parseWorkspace(workspaceRows[0].data);
+  if (!workspace) return Response.json({ error: "Workspace data is invalid" }, { status: 503 });
+  const today = dateKeyInTimeZone(new Date(), workspace.settings?.timezone);
   const due = workspace.tasks.filter((task) => !task.done && task.dueDate && task.dueDate <= today);
   if (!due.length) return Response.json({ ok: true, sent: 0, tasks: 0 });
   const overdue = due.filter((task) => task.dueDate && task.dueDate < today).length;

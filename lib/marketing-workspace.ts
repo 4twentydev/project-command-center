@@ -1,5 +1,6 @@
 import type { ContentStatus, MarketingActivityType, MarketingFunnelStage, MarketingSource, ProspectSegment } from "@/lib/marketing-plan";
 import { contentStatuses, launchWeeks, marketingActivityTypes, marketingFunnelStages, marketingSources, prospectSegments } from "@/lib/marketing-plan";
+import { dateKeyInTimeZone, defaultTimeZone } from "@/lib/date-time";
 
 export type MarketingProspect = {
   id: string;
@@ -54,7 +55,7 @@ export type MarketingWorkspace = {
 
 export const emptyMarketingWorkspace: MarketingWorkspace = { campaignStart: "", prospects: [], activities: [], content: [] };
 
-export function beginMarketingCampaign(workspace: MarketingWorkspace, dateValue = new Date()) {
+export function beginMarketingCampaign(workspace: MarketingWorkspace, dateValue = new Date(), timeZone = defaultTimeZone) {
   const now = dateValue.toISOString();
   const existingWeeks = new Set(workspace.content.map((item) => item.week));
   const seededContent = launchWeeks.filter((week) => !existingWeeks.has(week.week)).map((week) => ({
@@ -62,7 +63,7 @@ export function beginMarketingCampaign(workspace: MarketingWorkspace, dateValue 
     status: "idea" as const, asset: "", cta: "Book a free 20-minute fit call", result: "", publishAt: "",
     createdAt: now, updatedAt: now,
   }));
-  return { ...workspace, campaignStart: now.slice(0, 10), content: [...workspace.content, ...seededContent].toSorted((a, b) => a.week - b.week) };
+  return { ...workspace, campaignStart: dateKeyInTimeZone(dateValue, timeZone), content: [...workspace.content, ...seededContent].toSorted((a, b) => a.week - b.week) };
 }
 
 function array(value: unknown) { return Array.isArray(value) ? value : []; }

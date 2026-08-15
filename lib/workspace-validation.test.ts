@@ -30,4 +30,8 @@ describe("workspace validation", () => {
     expect(workspace.notes).toEqual([]);
     expect(workspace.tasks[0].priority).toBe("Medium");
   });
+  test("accepts valid IANA timezones and replaces invalid imported values", () => {
+    expect(normalizeWorkspace({ projects: [], tasks: [], activity: [], settings: { timezone: "Asia/Tokyo" } }).settings?.timezone).toBe("Asia/Tokyo");
+    expect(normalizeWorkspace({ projects: [], tasks: [], activity: [], settings: { timezone: "Not/A_Zone" } }).settings?.timezone).toBe("America/Denver");
+  });
 });

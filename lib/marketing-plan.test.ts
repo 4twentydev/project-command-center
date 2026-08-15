@@ -54,5 +54,6 @@ describe("marketing workspace validation", () => {
     expect(started.prospects).toEqual([prospect]);
     expect(started.activities).toEqual([activity]);
     expect(started.content).toHaveLength(12);
+    expect(beginMarketingCampaign({ campaignStart: "", prospects: [], activities: [], content: [] }, new Date("2026-08-11T00:30:00.000Z"), "America/Denver").campaignStart).toBe("2026-08-10");
   });
 });

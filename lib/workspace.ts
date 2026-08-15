@@ -1,4 +1,5 @@
 import type { Project } from "@/lib/projects";
+import { defaultTimeZone } from "@/lib/date-time";
 
 export type Task = {
   id: string;
@@ -52,7 +53,7 @@ export type ProjectNote = {
 
 export const defaultWorkspaceSettings: WorkspaceSettings = {
   displayName: "4twen",
-  timezone: "America/Denver",
+  timezone: defaultTimeZone,
   githubUsername: "4twentydev",
   vercelTeam: "4twentydev",
   staleProjectDays: 14,
