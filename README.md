@@ -93,6 +93,8 @@ Homepage engagement pricing is maintained in `lib/engagements.ts`. The three pub
 
 Authenticated owners can review and manage those inquiries at `/dashboard/leads`, move them through new/contacted/archived states, and launch a pre-addressed email reply. Optional Resend notifications use `RESEND_API_KEY`, `CONTACT_NOTIFICATION_EMAIL`, and `CONTACT_FROM_EMAIL`; inquiry storage succeeds even when email delivery is not configured or temporarily fails.
 
+Archived inquiries remain restorable from the lead pipeline for 365 days before the authenticated retention cron permanently removes them. Workspace recovery keeps the newest 30 cloud snapshots and exposes the newest 10 in the dashboard; restoring one first captures the current workspace as a safety snapshot.
+
 The client pipeline supports qualification and proposal stages, private notes, follow-up dates, lead-to-project conversion, reusable proposal drafting, and verified Resend delivery events through `/api/webhooks/resend` using `RESEND_WEBHOOK_SECRET`.
 
 ## Workflow Audit conversion path

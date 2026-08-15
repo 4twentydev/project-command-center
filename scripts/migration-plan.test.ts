@@ -9,7 +9,7 @@ describe("application migration plan", () => {
   test("loads ordered, unique, nonempty migrations", async () => {
     const fileNames = (await readdir(migrationsDirectory)).filter((fileName) => fileName.endsWith(".sql")).sort();
     const migrations = await Promise.all(fileNames.map(async (fileName) => parseMigration(fileName, await readFile(resolve(migrationsDirectory, fileName), "utf8"))));
-    expect(migrations.map((migration) => migration.version)).toEqual(["0001", "0002"]);
+    expect(migrations.map((migration) => migration.version)).toEqual(["0001", "0002", "0003"]);
     expect(new Set(migrations.map((migration) => migration.version)).size).toBe(migrations.length);
     expect(migrations.every((migration) => migration.statements.length > 0)).toBeTrue();
     expect(migrations.every((migration) => /^[0-9a-f]{64}$/.test(migration.checksum))).toBeTrue();
@@ -40,6 +40,8 @@ describe("application migration plan", () => {
       "contact_inquiries_ip_hash_created_at_idx",
       "contact_inquiries_due_follow_up_idx",
       "contact_inquiries_created_at_id_idx",
+      "contact_inquiries_archived_at_idx",
+      "contact_inquiries_archived_at_check",
       "conversion_events_visitor_hash_idx",
     ]) expect(plan).toContain(expected);
   });

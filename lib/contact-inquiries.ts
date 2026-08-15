@@ -26,6 +26,7 @@ export type ContactInquiry = {
   notificationId: string | null;
   notificationStatus: NotificationStatus;
   intake: WorkflowAuditIntake | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -107,6 +108,7 @@ function mapInquiry(row: Record<string, unknown>): ContactInquiry {
     notificationId: row.notification_id ? String(row.notification_id) : null,
     notificationStatus: String(row.notification_status ?? "not_configured") as NotificationStatus,
     intake: row.intake && typeof row.intake === "object" ? row.intake as WorkflowAuditIntake : null,
+    archivedAt: row.archived_at ? new Date(String(row.archived_at)).toISOString() : null,
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.created_at)).toISOString(),
   };

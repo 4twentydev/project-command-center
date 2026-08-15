@@ -24,7 +24,11 @@ export async function updateLeadStatus(formData: FormData) {
   const id = leadId(formData);
   const status = String(formData.get("status")) as LeadStatus;
   if (!leadStatuses.has(status)) throw new Error("Invalid lead update");
-  await sql`UPDATE contact_inquiries SET status = ${status}, updated_at = NOW() WHERE id = ${id}`;
+  await sql`
+    UPDATE contact_inquiries
+    SET status = ${status}, archived_at = CASE WHEN ${status} = 'archived' THEN COALESCE(archived_at, NOW()) ELSE NULL END, updated_at = NOW()
+    WHERE id = ${id}
+  `;
   revalidatePath("/dashboard"); revalidatePath("/dashboard/leads");
 }
 
@@ -46,7 +50,7 @@ export async function convertLeadToProject(formData: FormData) {
   await sql`
     WITH claimed AS (
       UPDATE contact_inquiries
-      SET status = 'won', converted_project_id = ${projectId}, updated_at = NOW()
+      SET status = 'won', archived_at = NULL, converted_project_id = ${projectId}, updated_at = NOW()
       WHERE id = ${id} AND converted_project_id IS NULL
       RETURNING name, email, company, message
     ), project_data AS (
