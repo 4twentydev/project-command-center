@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "test": "bun test",
     "auth:migrate": "bun x @better-auth/cli@1.4.21 migrate --yes",
-    "db:migrate": "bun scripts/migrate.ts"
+    "db:migrate": "bun scripts/migrate.ts",
+    "db:migrate:check": "bun scripts/migrate.ts --check"
   },
   "dependencies": {
     "@better-auth/passkey": "^1.6.26",

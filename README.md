@@ -14,6 +14,12 @@ bun dev
 
 Open `http://localhost:3000`. The public site lives at `/`, owner login at `/login`, passkey management at `/account`, and the private command center at `/dashboard`. Run `bun run db:migrate` after pulling schema changes, and use `bun run build` to verify the production build.
 
+## Application database migrations
+
+Application schema changes are ordered SQL files in `migrations/`. `bun run db:migrate` applies each pending file in its own PostgreSQL transaction and records its SHA-256 checksum in `application_migrations`. Applied migration files are immutable: add a new numbered migration for later schema changes instead of editing one that an environment may already have recorded. The runner stops before applying anything if a recorded checksum differs.
+
+Use `bun run db:migrate:check` to validate migration filenames, statement boundaries, and checksums without connecting to or changing a database. Better Auth continues to use its separate `bun run auth:migrate` command.
+
 Copy `.env.example` to `.env.local` for the complete local configuration contract. Search Console, first-party conversion measurement, optional public business details, and post-deployment checks are documented in [`docs/SEO-AND-MEASUREMENT.md`](docs/SEO-AND-MEASUREMENT.md). The private consultation templates, workflow, and database setup are documented in [`docs/CONSULTATION-PLAYBOOKS.md`](docs/CONSULTATION-PLAYBOOKS.md). The 90-day outbound, content, field-visit, partnership, and collateral system is documented in [`docs/MARKETING-OPERATIONS.md`](docs/MARKETING-OPERATIONS.md).
 
 ## Authentication
