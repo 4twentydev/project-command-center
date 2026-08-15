@@ -34,10 +34,12 @@ BETTER_AUTH_SECRET=<at least 32 random characters>
 BETTER_AUTH_URL=http://localhost:3000
 OWNER_EMAIL=you@example.com
 PASSKEY_RP_ID=localhost
-ALLOW_OWNER_SIGNUP=true
+OWNER_BOOTSTRAP_TOKEN=<one-time random bootstrap token>
 ```
 
-For production, set `BETTER_AUTH_URL=https://www.4twenty.dev` and `PASSKEY_RP_ID=4twenty.dev`. Temporarily set `ALLOW_OWNER_SIGNUP=true` only while creating the first owner account, then remove it or set it to `false`. Production authentication now fails closed if its URL, database, passkey relying-party ID, or secret is missing. Vercel canonicalizes the apex domain to `www`; the parent-domain relying-party ID keeps credentials scoped to 4TWENTY.DEV. Passkeys are domain-bound, so enroll the permanent production passkeys only after the custom domain is serving HTTPS. All workspace, project-intelligence, import, and push-management APIs require the authenticated owner session; the reminder cron retains its separate bearer-secret protection.
+Generate `BETTER_AUTH_SECRET` and the initial `OWNER_BOOTSTRAP_TOKEN` independently with `openssl rand -hex 32`. For production, set `BETTER_AUTH_URL=https://www.4twenty.dev` and `PASSKEY_RP_ID=4twenty.dev`. The setup form appears only while a bootstrap token is configured and the Better Auth user table is empty; creating the owner requires the configured email and token, and all later bootstrap attempts are refused. Remove `OWNER_BOOTSTRAP_TOKEN` after setup.
+
+Production authentication validates its complete runtime configuration when first used: the database must be PostgreSQL, the authentication origin must be an HTTPS origin without credentials or a custom port, `OWNER_EMAIL` must be operationally valid, secrets must meet the high-entropy policy, and the passkey relying-party ID must match the authentication hostname or a parent domain. Runtime validation remains lazy so `next build` can complete without deployment-only secrets. Vercel canonicalizes the apex domain to `www`; the parent-domain relying-party ID keeps credentials scoped to 4TWENTY.DEV. Passkeys are domain-bound, so enroll permanent production passkeys only after the custom domain is serving HTTPS. All workspace, project-intelligence, import, and push-management APIs require the authenticated owner session; cron endpoints retain separate bearer-secret protection.
 
 Run `bun run auth:migrate` when Better Auth schema changes are required. The migration CLI is downloaded only for that command and is intentionally excluded from installed application dependencies because its current release bundles an older Better Auth runtime; the deployed application uses the patched runtime declared in `dependencies`.
 

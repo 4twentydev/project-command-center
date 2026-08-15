@@ -1,34 +1,61 @@
 import { passkey } from "@better-auth/passkey";
 import { brand } from "@/lib/brand";
+import { resolveAuthConfiguration, type AuthConfiguration } from "@/lib/auth-config";
+import { ownerBootstrapAllowed } from "@/lib/owner-bootstrap";
 import { betterAuth } from "better-auth";
 import { Pool } from "pg";
 
-function environmentValue(name: string, value: string | undefined, developmentFallback: string) {
-  if (value && value !== "[SENSITIVE]") return value;
-  if (process.env.NODE_ENV === "production") throw new Error(`${name} must be configured in production`);
-  return developmentFallback;
+let authConfiguration: AuthConfiguration | undefined;
+let authPool: Pool | undefined;
+
+export function getAuthConfiguration() {
+  authConfiguration ??= resolveAuthConfiguration();
+  return authConfiguration;
+}
+
+function getAuthPool() {
+  authPool ??= new Pool({ connectionString: getAuthConfiguration().databaseURL });
+  return authPool;
+}
+
+export async function authUserExists() {
+  const result = await getAuthPool().query<{ exists: boolean }>('SELECT EXISTS (SELECT 1 FROM "user") AS exists');
+  return result.rows[0]?.exists === true;
 }
 
 function createAuth() {
-  const baseURL = environmentValue("BETTER_AUTH_URL", process.env.BETTER_AUTH_URL, "http://localhost:3000");
-  const relyingPartyId = environmentValue("PASSKEY_RP_ID", process.env.PASSKEY_RP_ID, new URL(baseURL).hostname);
-  const databaseURL = environmentValue("DATABASE_URL", process.env.DATABASE_URL, "postgresql://localhost:5432/work_ctrl");
-  const secret = environmentValue("BETTER_AUTH_SECRET", process.env.BETTER_AUTH_SECRET, "local-development-secret-change-before-deploying");
+  const configuration = getAuthConfiguration();
 
   return betterAuth({
     appName: brand.name,
-    baseURL,
-    secret,
-    database: new Pool({ connectionString: databaseURL }),
+    baseURL: configuration.baseURL,
+    secret: configuration.secret,
+    database: getAuthPool(),
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 12,
     },
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user, context) => {
+            const allowed = ownerBootstrapAllowed({
+              ownerEmail: configuration.ownerEmail,
+              requestedEmail: user.email.trim().toLowerCase(),
+              expectedToken: configuration.bootstrapToken,
+              providedToken: context?.request?.headers.get("x-owner-bootstrap-token") ?? null,
+              ownerExists: await authUserExists(),
+            });
+            if (!allowed) return false;
+          },
+        },
+      },
+    },
     plugins: [
       passkey({
-        rpID: relyingPartyId,
+        rpID: configuration.relyingPartyId,
         rpName: brand.name,
-        origin: baseURL,
+        origin: configuration.baseURL,
         authenticatorSelection: {
           residentKey: "preferred",
           userVerification: "required",
@@ -36,7 +63,6 @@ function createAuth() {
       }),
     ],
   });
-
 }
 
 let authInstance: ReturnType<typeof createAuth> | undefined;
