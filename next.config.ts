@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 import { applicationSecurityHeaders } from "./lib/security-headers";
 
 const nextConfig: NextConfig = {
+  images: {
+    qualities: [75, 78, 80, 82],
+  },
   async headers() {
     return [
       {

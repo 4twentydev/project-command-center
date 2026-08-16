@@ -80,6 +80,13 @@ test("project profiles connect industries and uses to relevant service paths", a
     await expect(page.getByRole("heading", { name: "Industries and applicable uses" })).toBeVisible();
     await expect(page.locator(`a[href="${profile.service}"]`)).toBeVisible();
     await expect(page.locator("article article").first()).toBeVisible();
+    if (profile.slug === "work-control") {
+      const featuredImage = page.getByAltText("Dark WORK//CTRL dashboard with project, task, signal, focus, pressure, and project-journal cards").first();
+      await featuredImage.scrollIntoViewIfNeeded();
+      await expect(featuredImage).toBeVisible();
+      await expect.poll(() => featuredImage.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+      await expect(page.locator('img[src*="work-control-"]:visible')).toHaveCount(5);
+    }
     await expectNoHorizontalDocumentOverflow(page);
     assertNoErrors();
   }

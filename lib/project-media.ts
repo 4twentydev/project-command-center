@@ -17,6 +17,8 @@ export type ProjectScreenshotMedia = ProjectMediaBase & {
   desktop: ProjectImageSource;
   mobile?: ProjectImageSource;
   expandable?: boolean;
+  featured?: boolean;
+  layout?: "screen" | "phone";
 };
 
 export type ProjectVideoMedia = ProjectMediaBase & {

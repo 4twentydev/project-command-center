@@ -52,8 +52,17 @@ describe("case study data", () => {
 
   test("uses honest placeholders until verified media is supplied", () => {
     const placeholders = caseStudies.flatMap((study) => study.media).filter((item) => item.type === "placeholder");
-    expect(placeholders).toHaveLength(3);
+    expect(placeholders).toHaveLength(2);
     expect(placeholders.every((item) => item.caption.toLowerCase().match(/not been supplied|no interface/))).toBeTrue();
+  });
+
+  test("publishes verified WORK//CTRL screenshots with intrinsic dimensions", () => {
+    const media = getCaseStudy("work-control")?.media ?? [];
+    const screenshots = media.filter((item) => item.type === "screenshot");
+    expect(screenshots).toHaveLength(5);
+    expect(screenshots.every((item) => item.desktop.src.startsWith("/media/projects/work-control/") && item.desktop.width > 1000 && item.desktop.height > 1000)).toBeTrue();
+    expect(screenshots.filter((item) => item.layout === "phone")).toHaveLength(2);
+    expect(screenshots.filter((item) => item.featured)).toHaveLength(1);
   });
 
   test("labels non-live results as intended outcomes", () => {
