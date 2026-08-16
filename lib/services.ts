@@ -99,6 +99,7 @@ export const publicServices = [
     caseStudyLinks: [
       { slug: "work-control", relevance: "A live owner-operated system combining project, deployment, reminder, and lead-follow-up signals in one place." },
       { slug: "shop-inventory", relevance: "A working prototype showing how simple records and exception-focused views can replace repeated stock checks." },
+      { slug: "sic-pizza-pos", relevance: "A working restaurant POS prototype connecting tables, configured orders, guest approvals, kitchen states, mocked split payments, and an auditable event trail." },
     ],
     typicalEngagement: { label: "Typically $1,500–$3,500 for one tightly scoped automation", note: "Planning range only. Vendor APIs, data cleanup, approval rules, reliability requirements, and ongoing support can change the implementation range." },
     faqs: [
