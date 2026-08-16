@@ -13,7 +13,7 @@ export type CaseStudy = {
   icon: "gauge" | "scan-line" | "layers";
   industries: string[];
   applications: { title: string; description: string }[];
-  paths: { label: string; description: string; href: string }[];
+  paths: { label: string; description: string; href: string; external?: boolean }[];
   intendedFor: string;
   problem: string;
   previousWorkflow: string;
@@ -70,37 +70,38 @@ export const caseStudies: CaseStudy[] = [
     cta: { label: "Discuss an internal command center", href: "/#contact" },
   },
   {
-    slug: "signforge",
+    slug: "jwld-store",
     number: "02",
-    status: "Active concept",
-    title: "SignForge",
-    kicker: "CNC signage workflow",
-    summary: "A configurable sales-to-production workflow for sign, CNC, and custom-fabrication businesses where every order carries options, approvals, material decisions, production steps, and a customer promise.",
-    signal: "Configure the order once, then carry the approved intent through production",
-    icon: "scan-line",
-    industries: ["Sign shops", "CNC router shops", "Custom fabrication", "Exhibits and displays", "Architectural graphics", "Custom woodworking"],
+    status: "Live system",
+    title: "jwld.store",
+    kicker: "Commerce and marketplace platform",
+    summary: "A live, mobile-first commerce platform for a specialty-goods brand, demonstrating how product discovery, inventory, cart activity, custom requests, and a distinctive buying experience can become the foundation for an online marketplace.",
+    signal: "Connect discovery, product truth, purchasing intent, and fulfillment in one branded experience",
+    icon: "layers",
+    industries: ["Independent brands", "Artists and makers", "Curated retail", "Specialty goods", "Beauty and accessories", "Local producers"],
     applications: [
-      { title: "Configured quoting", description: "Capture dimensions, materials, finishes, installation, artwork, and option changes in a quote structure that can become the production record." },
-      { title: "Proof and revision approval", description: "Keep customer decisions, revisions, approved artwork, and production authorization attached to the same job." },
-      { title: "Material and production planning", description: "Translate the approved configuration into material requirements, routing steps, ownership, and readiness checkpoints." },
-      { title: "Delivery and installation handoff", description: "Carry packaging, pickup, shipping, site, installation, and completion requirements through the final handoff." },
+      { title: "Direct-to-consumer storefront", description: "Give an independent brand a fast, focused catalog, product-detail experience, cart, and purchasing path without flattening its visual identity into a generic template." },
+      { title: "Curated online marketplace", description: "Use the same catalog and merchandising foundation for a curated assortment, then add seller onboarding, commissions, moderation, and payouts when the operating model requires multiple vendors." },
+      { title: "Limited and one-of-one inventory", description: "Keep product availability, featured items, categories, media, and price attached to the product record so scarce or handmade goods are represented accurately." },
+      { title: "Custom-order intake", description: "Create a separate path for commissions and made-to-order requests when the buyer needs to describe an object, select options, or begin a conversation before purchase." },
     ],
     paths: [
-      { label: "CNC and signage systems", description: "Explore software and workflow design specifically for configurable sign and CNC work.", href: "/services/cnc-signage-systems" },
-      { label: "Manufacturing software", description: "Position the same pattern around job release, material, capacity, and production visibility.", href: "/services/manufacturing-software" },
-      { label: "Audit the current handoff", description: "Trace one real order from inquiry through fabrication before choosing what to build.", href: "/workflow-audit#audit-intake" },
+      { label: "Visit the live store", description: "Explore the current branded catalog, product pages, featured assortment, shopping bag, and custom-commission path.", href: "https://jwld.store", external: true },
+      { label: "Websites and online marketplaces", description: "Explore storefront, catalog, marketplace, intake, and operational-integration options for a product-led business.", href: "/services/small-business-websites" },
+      { label: "Discuss a marketplace build", description: "Scope the smallest complete buying journey, then identify which catalog, seller, payment, fulfillment, or administration capabilities belong in the first release.", href: "/?service=small-business-websites&engagement=custom-operations-system#contact" },
     ],
-    intendedFor: "Sign companies, CNC router shops, custom wood and metal fabricators, exhibit builders, architectural-graphics teams, and other made-to-order businesses that must turn customer selections into controlled production instructions.",
-    problem: "Configured custom work can lose momentum and accuracy between inquiry, estimating, proofing, revision approval, material planning, toolpath preparation, fabrication, finishing, delivery, and installation.",
-    previousWorkflow: "Customer details, dimensions, revisions, prices, material notes, and production status are often distributed across messages, paper, spreadsheets, design files, and the knowledge of whoever is running the job.",
-    solution: "A proposed configurable-job workflow that keeps customer intent, priced options, approvals, material requirements, production stages, and delivery or installation requirements connected to the same order record.",
-    capabilities: ["Structured project intake", "Quote and option tracking", "Design approval history", "Material and production planning", "Shop-floor status checkpoints", "Delivery and handoff visibility"],
-    technologies: ["CNC production domain modeling", "Workflow mapping", "Web application prototyping", "Automation planning"],
-    outcomeLabel: "Intended outcome",
-    outcome: "The intended outcome is a clearer path from inquiry to finished sign, with fewer lost decisions and less dependence on verbal status checks. No production results or savings have been verified because the system remains an active concept.",
-    limitations: "SignForge remains an active concept, not a deployed customer system. Machine integrations, quoting rules, design-file handling, and the exact production model still require validation against a real shop’s equipment and workflow.",
-    media: [{ id: "workflow-concept", type: "placeholder", label: "Workflow concept", description: "A verified workflow map or functional prototype view for SignForge.", caption: "No interface or fabrication media is shown because SignForge remains an active concept.", requestedAsset: "Supply a verified workflow diagram or prototype screen when one exists." }],
-    cta: { label: "Audit a fabrication workflow", href: "/#contact" },
+    intendedFor: "Independent brands, artists, makers, curated retailers, specialty-product businesses, and marketplace operators that need a buying experience connected to accurate products, inventory, customer intent, and fulfillment responsibilities.",
+    problem: "A product business needs more than attractive pages. Catalog structure, product media, availability, pricing, cart behavior, payment boundaries, custom requests, and fulfillment expectations must stay coherent as customers move from discovery to action.",
+    previousWorkflow: "Before a dedicated commerce system, products may be promoted through social posts, messages, generic payment links, and manually updated listings, leaving buyers to ask what is available and the operator to reconcile orders by hand.",
+    solution: "A branded commerce application that turns structured product records into responsive discovery, category browsing, detailed product views, quick-add and shopping-bag interactions, stock-aware merchandising, and a dedicated commission path.",
+    capabilities: ["Responsive product catalog and detail pages", "Category browsing and featured merchandising", "Inventory-aware product availability", "Quick-add and shopping-bag interactions", "Custom-commission inquiry path", "Hosted product-media delivery"],
+    technologies: ["Next.js App Router", "Neon Postgres", "Stripe integration", "Vercel Blob", "Vercel"],
+    outcomeLabel: "Operational outcome",
+    outcome: "The live system gives jwld a distinct, owned storefront where customers can browse available pieces, inspect individual products, build a shopping bag, and begin a custom commission. No sales, conversion-rate, or revenue improvement is claimed without verified analytics.",
+    limitations: "The current implementation is a single-brand storefront, not a live multi-vendor marketplace. Seller accounts, catalog approval, commissions, split payments, payouts, disputes, moderation, and marketplace search would be scoped as additional operating systems before supporting outside vendors.",
+    media: [{ id: "storefront-overview", type: "placeholder", label: "Live storefront overview", description: "Verified desktop and mobile views of the live jwld.store catalog, product, cart, and custom-commission experience.", caption: "Portfolio screenshots of the live storefront have not been supplied yet; visit jwld.store to view the current system.", requestedAsset: "Supply a desktop catalog or product view plus a mobile shopping-bag or custom-commission screen." }],
+    previewMediaId: "storefront-overview",
+    cta: { label: "Discuss an online marketplace", href: "/#contact" },
   },
   {
     slug: "shop-inventory",

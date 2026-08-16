@@ -85,9 +85,9 @@ The project journal preserves cloud-synced updates, decisions, blockers, and not
 
 The command palette provides universal search across projects, tasks, inbox captures, journal entries, and weekly reviews, opening editors or navigating directly to the relevant workspace section.
 
-The public studio site includes clearly staged case studies for WORK//CTRL, SignForge, and Shop Inventory. Its contact form validates on the server, uses a honeypot and hashed-IP rate limit, and stores inquiries in the Neon `contact_inquiries` table without exposing database credentials to the browser.
+The public studio site includes clearly staged case studies for WORK//CTRL, jwld.store, and Shop Inventory. Its contact form validates on the server, uses a honeypot and hashed-IP rate limit, and stores inquiries in the Neon `contact_inquiries` table without exposing database credentials to the browser.
 
-The four public service routes are generated from `lib/services.ts`: `/services/manufacturing-software`, `/services/workflow-automation`, `/services/small-business-websites`, and `/services/cnc-signage-systems`. The same typed catalog drives homepage discovery, page copy, project references, planning ranges, FAQs, metadata, structured data, sitemap entries, and service-attributed contact-form preselection.
+The four public service routes are generated from `lib/services.ts`: `/services/manufacturing-software`, `/services/workflow-automation`, `/services/small-business-websites`, and `/services/cnc-signage-systems`. The website route is publicly positioned as Websites & Online Marketplaces while retaining its stable URL. The same typed catalog drives homepage discovery, page copy, project references, planning ranges, FAQs, metadata, structured data, sitemap entries, and service-attributed contact-form preselection.
 
 Public identity is centralized in `lib/brand.ts`. The primary descriptor is **Industrial software and workflow automation**, supported by **Practical systems for manufacturers, shops, contractors, and small businesses.** That configuration drives the first-screen positioning, navigation wordmark, footer, metadata, manifest, structured data, social preview, and contact-email presentation. For production email, configure `CONTACT_FROM_EMAIL` as a verified sender such as `Brandon York | 4TWENTY.DEV <hello@4twenty.dev>`.
 

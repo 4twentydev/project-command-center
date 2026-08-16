@@ -4,14 +4,14 @@ import { projectStatusDefinitions, projectStatuses } from "@/lib/project-status"
 
 describe("case study data", () => {
   test("defines the initial selected-work routes", () => {
-    expect(caseStudies.map((study) => study.slug)).toEqual(["work-control", "signforge", "shop-inventory"]);
+    expect(caseStudies.map((study) => study.slug)).toEqual(["work-control", "jwld-store", "shop-inventory"]);
     expect(caseStudies.every((study) => Boolean(getCaseStudy(study.slug)))).toBeTrue();
   });
 
   test("assigns an explicit, supported status to every current project", () => {
     expect(Object.fromEntries(caseStudies.map((study) => [study.title, study.status]))).toEqual({
       "WORK//CTRL": "Live system",
-      SignForge: "Active concept",
+      "jwld.store": "Live system",
       "Shop Inventory": "Working prototype",
     });
     expect(projectStatuses).toEqual(["Live system", "Working prototype", "Active concept", "Case study"]);
@@ -31,7 +31,7 @@ describe("case study data", () => {
       expect(study.applications.length).toBeGreaterThan(2);
       expect(study.paths.length).toBeGreaterThan(1);
       expect(study.applications.every((item) => item.title.length > 4 && item.description.length > 30)).toBeTrue();
-      expect(study.paths.every((item) => item.label.length > 4 && item.description.length > 30 && item.href.startsWith("/"))).toBeTrue();
+      expect(study.paths.every((item) => item.label.length > 4 && item.description.length > 30 && (item.href.startsWith("/") || item.href.startsWith("https://")))).toBeTrue();
       expect(study.outcome.length).toBeGreaterThan(20);
       expect(study.limitations.length).toBeGreaterThan(20);
       expect(study.media.length).toBeGreaterThan(0);
@@ -63,6 +63,15 @@ describe("case study data", () => {
     expect(screenshots.every((item) => item.desktop.src.startsWith("/media/projects/work-control/") && item.desktop.width > 1000 && item.desktop.height > 1000)).toBeTrue();
     expect(screenshots.filter((item) => item.layout === "phone")).toHaveLength(2);
     expect(screenshots.filter((item) => item.featured)).toHaveLength(1);
+  });
+
+  test("positions jwld.store honestly as live commerce and a marketplace foundation", () => {
+    const study = getCaseStudy("jwld-store");
+    expect(study?.status).toBe("Live system");
+    expect(study?.paths.some(({ href }) => href === "https://jwld.store")).toBeTrue();
+    expect(study?.paths.some(({ href }) => href === "/services/small-business-websites")).toBeTrue();
+    expect(study?.capabilities).toContain("Inventory-aware product availability");
+    expect(study?.limitations.toLowerCase()).toContain("not a live multi-vendor marketplace");
   });
 
   test("labels non-live results as intended outcomes", () => {

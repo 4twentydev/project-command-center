@@ -8,6 +8,14 @@ describe("public service pages", () => {
     expect(publicServices.map(({ primary }) => primary)).toEqual([true, true, false, false]);
   });
 
+  test("promotes commerce and marketplace delivery through the website service", () => {
+    const service = getPublicService("small-business-websites");
+    expect(service?.name).toBe("Websites & Online Marketplaces");
+    expect(service?.caseStudyLinks.some(({ slug }) => slug === "jwld-store")).toBeTrue();
+    expect(service?.deliverables.join(" ").toLowerCase()).toContain("marketplace");
+    expect(service?.faqs.some(({ question }) => question.toLowerCase().includes("marketplace"))).toBeTrue();
+  });
+
   test("keeps each service page complete and genuinely distinct", () => {
     expect(new Set(publicServices.map(({ headline }) => headline)).size).toBe(4);
     expect(new Set(publicServices.map(({ summary }) => summary)).size).toBe(4);

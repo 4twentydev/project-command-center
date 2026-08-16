@@ -20,7 +20,11 @@ function ProjectFit({ study }: { study: CaseStudy }) {
       <div><div className="font-mono text-[9px] uppercase tracking-[0.2em] text-primary">Where this pattern fits</div><h2 id="project-fit-heading" className="mt-3 text-2xl font-semibold tracking-tight">Industries and applicable uses</h2><p className="mt-3 text-sm leading-6 text-muted-foreground">The interface and operating record would be configured around the terminology, decisions, and constraints of each business.</p></div>
       <div className="min-w-0"><div className="flex flex-wrap gap-2">{study.industries.map((industry) => <Badge key={industry} variant="secondary">{industry}</Badge>)}</div><div className="mt-6 grid gap-3 sm:grid-cols-2">{study.applications.map((application) => <article key={application.title} className="rounded-xl border border-border bg-card/55 p-5"><h3 className="text-sm font-semibold">{application.title}</h3><p className="mt-2 text-xs leading-6 text-muted-foreground">{application.description}</p></article>)}</div></div>
     </div>
-    <div className="mt-8 grid gap-3 md:grid-cols-3">{study.paths.map((path) => <Link key={path.href} href={path.href} className="group flex min-w-0 flex-col rounded-xl border border-border bg-background/45 p-5 transition hover:border-primary/35 hover:bg-primary/[0.035]"><span className="flex items-center justify-between gap-3 text-sm font-medium text-primary">{path.label}<ArrowRight className="size-4 shrink-0 transition group-hover:translate-x-1" /></span><span className="mt-2 text-xs leading-5 text-muted-foreground">{path.description}</span></Link>)}</div>
+    <div className="mt-8 grid gap-3 md:grid-cols-3">{study.paths.map((path) => {
+      const content = <><span className="flex items-center justify-between gap-3 text-sm font-medium text-primary">{path.label}<ArrowRight className="size-4 shrink-0 transition group-hover:translate-x-1" /></span><span className="mt-2 text-xs leading-5 text-muted-foreground">{path.description}</span></>;
+      const className = "group flex min-w-0 flex-col rounded-xl border border-border bg-background/45 p-5 transition hover:border-primary/35 hover:bg-primary/[0.035]";
+      return path.external ? <a key={path.href} href={path.href} target="_blank" rel="noreferrer" className={className}>{content}</a> : <Link key={path.href} href={path.href} className={className}>{content}</Link>;
+    })}</div>
   </section>;
 }
 
