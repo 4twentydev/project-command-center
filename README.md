@@ -85,7 +85,7 @@ The project journal preserves cloud-synced updates, decisions, blockers, and not
 
 The command palette provides universal search across projects, tasks, inbox captures, journal entries, and weekly reviews, opening editors or navigating directly to the relevant workspace section.
 
-The public studio site includes clearly staged case studies for WORK//CTRL, jwld.store, Shop Inventory, SIC Pizza POS, and Employee Barcodes. Its contact form validates on the server, uses a honeypot and hashed-IP rate limit, and stores inquiries in the Neon `contact_inquiries` table without exposing database credentials to the browser.
+The public studio site includes clearly staged case studies for WORK//CTRL, jwld.store, Shop Inventory, SIC Pizza POS, Employee Barcodes, and ACM Weekly. Its contact form validates on the server, uses a honeypot and hashed-IP rate limit, and stores inquiries in the Neon `contact_inquiries` table without exposing database credentials to the browser.
 
 The four public service routes are generated from `lib/services.ts`: `/services/manufacturing-software`, `/services/workflow-automation`, `/services/small-business-websites`, and `/services/cnc-signage-systems`. The website route is publicly positioned as Websites & Online Marketplaces while retaining its stable URL. The same typed catalog drives homepage discovery, page copy, project references, planning ranges, FAQs, metadata, structured data, sitemap entries, and service-attributed contact-form preselection.
 

@@ -74,6 +74,7 @@ test("project profiles connect industries and uses to relevant service paths", a
     { slug: "shop-inventory", service: "/services/manufacturing-software" },
     { slug: "sic-pizza-pos", service: "/services/workflow-automation" },
     { slug: "employee-barcodes", service: "/services/manufacturing-software" },
+    { slug: "acm-weekly", service: "/services/manufacturing-software" },
   ];
 
   for (const profile of profiles) {
@@ -84,6 +85,7 @@ test("project profiles connect industries and uses to relevant service paths", a
     if (profile.slug === "jwld-store") await expect(page.locator('a[href="https://jwld.store"]')).toHaveAttribute("target", "_blank");
     if (profile.slug === "sic-pizza-pos") await expect(page.locator('a[href="https://sic-pizza.vercel.app"]')).toHaveAttribute("target", "_blank");
     if (profile.slug === "employee-barcodes") await expect(page.locator('a[href="https://barcodes.4twenty.dev"]')).toHaveAttribute("target", "_blank");
+    if (profile.slug === "acm-weekly") await expect(page.locator('a[href="https://acmweekly.com"]')).toHaveAttribute("target", "_blank");
     await expect(page.locator("article article").first()).toBeVisible();
     if (profile.slug === "work-control") {
       const featuredImage = page.getByAltText("Dark WORK//CTRL dashboard with project, task, signal, focus, pressure, and project-journal cards").first();
