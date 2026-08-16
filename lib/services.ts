@@ -58,6 +58,7 @@ export const publicServices = [
     caseStudyLinks: [
       { slug: "shop-inventory", relevance: "A working prototype exploring practical on-hand, committed, receiving, and reorder visibility for a small shop." },
       { slug: "work-control", relevance: "A live system showing how scattered operating signals can become one daily control surface; it is owner-operated, not a manufacturing deployment." },
+      { slug: "employee-barcodes", relevance: "A live employee-label tool showing how standardized operator identifiers can support downstream production, quality, packing, and completion scans." },
     ],
     typicalEngagement: { label: "Typically $1,500–$3,500 for one focused workflow; connected systems typically start at $5,000", note: "Planning range only. Integrations, migration, hardware, support, and the number of workflows materially affect scope." },
     faqs: [
@@ -100,6 +101,7 @@ export const publicServices = [
       { slug: "work-control", relevance: "A live owner-operated system combining project, deployment, reminder, and lead-follow-up signals in one place." },
       { slug: "shop-inventory", relevance: "A working prototype showing how simple records and exception-focused views can replace repeated stock checks." },
       { slug: "sic-pizza-pos", relevance: "A working restaurant POS prototype connecting tables, configured orders, guest approvals, kitchen states, mocked split payments, and an auditable event trail." },
+      { slug: "employee-barcodes", relevance: "A live identity-label workflow that makes employee barcodes searchable, printable, and shareable before a separate production system captures scan events." },
     ],
     typicalEngagement: { label: "Typically $1,500–$3,500 for one tightly scoped automation", note: "Planning range only. Vendor APIs, data cleanup, approval rules, reliability requirements, and ongoing support can change the implementation range." },
     faqs: [
