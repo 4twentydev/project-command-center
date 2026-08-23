@@ -30,8 +30,42 @@ export type CaseStudy = {
 
 export const caseStudies: CaseStudy[] = [
   {
-    slug: "work-control",
+    slug: "elward-flow",
     number: "01",
+    status: "Live system",
+    title: "Elward Flow",
+    kicker: "Production release control",
+    summary: "A live release-intake and document-control system that keeps manufactured orders, approvals, drawings, files, and shop-floor handoffs connected.",
+    signal: "One controlled path from release intake to production-ready work",
+    icon: "layers",
+    industries: ["Architectural panel manufacturing", "Manufacturing and fabrication", "CNC production", "Building products", "Production management", "Document-controlled operations"],
+    applications: [
+      { title: "Release intake and readiness", description: "Bring order context, required files, approvals, and readiness decisions into one controlled release record before production begins." },
+      { title: "Drawing and revision control", description: "Keep controlled drawings, revisions, review decisions, and unresolved document work visible to the people preparing the production handoff." },
+      { title: "CNC and production-file handoff", description: "Separate production-ready sources from supporting documents so the shop receives the right files with the right release context." },
+      { title: "Manufacturing approval workflow", description: "Turn missing information, review decisions, and release blockers into explicit actions instead of relying on email chains and verbal follow-up." },
+    ],
+    paths: [
+      { label: "Open Elward Flow", description: "Visit the live release-intake and document-control system.", href: "https://elward-flow.4twenty.dev", external: true },
+      { label: "Manufacturing software", description: "Explore tailored systems for release control, production visibility, inventory, scheduling, and shop-floor handoffs.", href: "/services/manufacturing-software" },
+      { label: "Audit a production workflow", description: "Map the current intake, review, document, and release path before selecting the first implementation milestone.", href: "/workflow-audit#audit-intake" },
+    ],
+    intendedFor: "Manufacturers and fabrication teams that need office decisions, controlled documents, and production handoffs to remain attached to the same release.",
+    problem: "Release information can arrive through several channels while drawings, approvals, finish schedules, takeoffs, and production files change at different speeds. The shop needs a trustworthy answer to what is ready and what is still blocked.",
+    previousWorkflow: "Reconstruct the release from email, shared folders, spreadsheets, PDFs, and verbal updates; compare revisions manually; then chase missing approvals or files before production can safely begin.",
+    solution: "A production-minded release workspace that organizes intake, controlled documents, review decisions, drawing and CNC-source handling, and the actions required to move a release toward the shop floor.",
+    capabilities: ["Structured release intake", "Controlled drawing and document handling", "Approval and review checkpoints", "Production-file separation", "Release readiness actions", "Authenticated operational workspace"],
+    technologies: ["Next.js App Router", "TypeScript", "Bun", "Drizzle ORM", "PostgreSQL", "S3-compatible storage"],
+    outcomeLabel: "Operational outcome",
+    outcome: "The deployed system gives release work one controlled operating path and makes unresolved document or review work visible before handoff. Current evidence confirms the working system and production deployment; quantified time, quality, or cost improvements have not yet been established.",
+    limitations: "Elward Flow is an actively evolving operational system. Its current workflow reflects the release and document-control needs implemented so far, and broader customer validation, integrations, and measured business outcomes remain future work.",
+    media: [{ id: "elward-flow-release-intake", type: "placeholder", label: "Release intake workspace", description: "A verified view of Elward Flow release intake and controlled document review across desktop and mobile.", caption: "A polished production screenshot has not been supplied. This placeholder does not represent the live interface.", requestedAsset: "Supply a desktop release-intake screenshot and, optionally, a document-review or mobile workflow view." }],
+    previewMediaId: "elward-flow-release-intake",
+    cta: { label: "Discuss production release control", href: "/#contact" },
+  },
+  {
+    slug: "work-control",
+    number: "02",
     status: "Live system",
     title: "WORK//CTRL",
     kicker: "Personal operations platform",
@@ -71,7 +105,7 @@ export const caseStudies: CaseStudy[] = [
   },
   {
     slug: "jwld-store",
-    number: "02",
+    number: "03",
     status: "Live system",
     title: "jwld.store",
     kicker: "Commerce and marketplace platform",
@@ -105,7 +139,7 @@ export const caseStudies: CaseStudy[] = [
   },
   {
     slug: "shop-inventory",
-    number: "03",
+    number: "04",
     status: "Working prototype",
     title: "Shop Inventory",
     kicker: "Operational visibility",
@@ -139,7 +173,7 @@ export const caseStudies: CaseStudy[] = [
   },
   {
     slug: "sic-pizza-pos",
-    number: "04",
+    number: "05",
     status: "Working prototype",
     title: "SIC Pizza POS",
     kicker: "Sarcastic restaurant operations",
@@ -173,7 +207,7 @@ export const caseStudies: CaseStudy[] = [
   },
   {
     slug: "employee-barcodes",
-    number: "05",
+    number: "06",
     status: "Live system",
     title: "Employee Barcodes",
     kicker: "Production identity and traceability",
@@ -207,7 +241,7 @@ export const caseStudies: CaseStudy[] = [
   },
   {
     slug: "acm-weekly",
-    number: "06",
+    number: "07",
     status: "Live system",
     title: "ACM Weekly",
     kicker: "Authenticated production intelligence",

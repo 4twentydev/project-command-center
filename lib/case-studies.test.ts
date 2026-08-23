@@ -4,12 +4,13 @@ import { projectStatusDefinitions, projectStatuses } from "@/lib/project-status"
 
 describe("case study data", () => {
   test("defines the initial selected-work routes", () => {
-    expect(caseStudies.map((study) => study.slug)).toEqual(["work-control", "jwld-store", "shop-inventory", "sic-pizza-pos", "employee-barcodes", "acm-weekly"]);
+    expect(caseStudies.map((study) => study.slug)).toEqual(["elward-flow", "work-control", "jwld-store", "shop-inventory", "sic-pizza-pos", "employee-barcodes", "acm-weekly"]);
     expect(caseStudies.every((study) => Boolean(getCaseStudy(study.slug)))).toBeTrue();
   });
 
   test("assigns an explicit, supported status to every current project", () => {
     expect(Object.fromEntries(caseStudies.map((study) => [study.title, study.status]))).toEqual({
+      "Elward Flow": "Live system",
       "WORK//CTRL": "Live system",
       "jwld.store": "Live system",
       "Shop Inventory": "Working prototype",
@@ -55,7 +56,7 @@ describe("case study data", () => {
 
   test("uses honest placeholders until verified media is supplied", () => {
     const placeholders = caseStudies.flatMap((study) => study.media).filter((item) => item.type === "placeholder");
-    expect(placeholders).toHaveLength(5);
+    expect(placeholders).toHaveLength(6);
     expect(placeholders.every((item) => item.caption.toLowerCase().match(/not been supplied|no interface/))).toBeTrue();
   });
 
