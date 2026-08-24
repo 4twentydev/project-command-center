@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle, ArrowUpRight, BarChart3, Bell, BellOff, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3,
   Cloud, GitPullRequest as CodePullRequest, GitCommitHorizontal, Github, Pencil, BookOpenCheck, CircleDotDashed,
@@ -109,24 +109,461 @@ function AnalyticsSection({ tasks, projects, today, timeZone }: { tasks: Task[];
 }
 
 function CalendarTimeline({ tasks, projects, todayKey, onEdit, onToggle }: { tasks: Task[]; projects: Project[]; todayKey: string; onEdit: (task: Task) => void; onToggle: (id: string) => void }) {
-  const [cursor, setCursor] = useState(() => { const [year, month] = todayKey.split("-").map(Number); return { year, month: month - 1 }; });
+  const [selectedDate, setSelectedDate] = useState(todayKey);
+  const [timelineTab, setTimelineTab] = useState<"upcoming" | "completed">("upcoming");
+  const [cursor, setCursor] = useState(() => {
+    const [year, month] = todayKey.split("-").map(Number);
+    return { year, month: month - 1 };
+  });
+
+  const currentTodayCursor = useMemo(() => {
+    const [year, month] = todayKey.split("-").map(Number);
+    return { year, month: month - 1 };
+  }, [todayKey]);
+
+  const isCurrentMonth = cursor.year === currentTodayCursor.year && cursor.month === currentTodayCursor.month;
+
   const monthStart = new Date(Date.UTC(cursor.year, cursor.month, 1, 12));
   const gridStart = new Date(Date.UTC(cursor.year, cursor.month, 1 - monthStart.getUTCDay(), 12));
-  const days = Array.from({ length: 42 }, (_, index) => { const date = new Date(gridStart); date.setUTCDate(gridStart.getUTCDate() + index); return date; });
+  const days = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setUTCDate(gridStart.getUTCDate() + index);
+    return date;
+  });
   const monthLabel = monthStart.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
-  const dueTasks = tasks.filter((task) => task.dueDate).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
-  const upcoming = dueTasks.filter((task) => !task.done && String(task.dueDate) >= todayKey).slice(0, 8);
-  const completed = [...tasks].filter((task) => task.done).sort((a, b) => String(b.completedAt ?? b.createdAt).localeCompare(String(a.completedAt ?? a.createdAt))).slice(0, 8);
+
+  const dueTasks = tasks
+    .filter((task) => task.dueDate)
+    .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)));
+
+  const upcoming = dueTasks
+    .filter((task) => !task.done && String(task.dueDate) >= todayKey)
+    .slice(0, 10);
+
+  const overdue = dueTasks
+    .filter((task) => !task.done && String(task.dueDate) < todayKey)
+    .sort((a, b) => String(b.dueDate).localeCompare(String(a.dueDate)));
+
+  const completed = [...tasks]
+    .filter((task) => task.done)
+    .sort((a, b) => String(b.completedAt ?? b.createdAt).localeCompare(String(a.completedAt ?? a.createdAt)))
+    .slice(0, 10);
+
+  const selectedDayTasks = tasks.filter((task) => task.dueDate === selectedDate);
+
+  const monthDeadlinesCount = dueTasks.filter((task) => {
+    if (!task.dueDate) return false;
+    const [y, m] = task.dueDate.split("-").map(Number);
+    return y === cursor.year && m === cursor.month + 1;
+  }).length;
 
   function moveMonth(delta: number) {
     const date = new Date(Date.UTC(cursor.year, cursor.month + delta, 1, 12));
     setCursor({ year: date.getUTCFullYear(), month: date.getUTCMonth() });
   }
 
-  return <section id="calendar" className="mb-10 grid gap-4 2xl:grid-cols-[1.45fr_0.75fr]">
-    <Card><CardContent className="p-5"><div className="mb-5 flex items-center justify-between"><div><div className="flex items-center gap-2"><CalendarDays className="size-4 text-primary" /><h2 className="text-sm font-semibold">Planning calendar</h2></div><p className="mt-1 text-xs text-muted-foreground">Deadlines across every project.</p></div><div className="flex items-center gap-1"><Button variant="ghost" size="icon" onClick={() => moveMonth(-1)}><ChevronLeft /></Button><div className="min-w-32 text-center text-sm font-medium">{monthLabel}</div><Button variant="ghost" size="icon" onClick={() => moveMonth(1)}><ChevronRight /></Button></div></div><div className="grid grid-cols-7 border-l border-t border-border text-center font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} className="border-b border-r border-border py-2">{day}</div>)}{days.map((date) => { const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`; const dayTasks = dueTasks.filter((task) => task.dueDate === key); const currentMonth = date.getUTCMonth() === cursor.month; return <div key={key} className={cn("min-h-24 border-b border-r border-border p-1.5 text-left", !currentMonth && "bg-secondary/20 text-muted-foreground/40", key === todayKey && "bg-primary/5")}><div className={cn("mb-1 grid size-6 place-items-center rounded-full text-[10px]", key === todayKey && "bg-primary font-semibold text-primary-foreground")}>{date.getUTCDate()}</div><div className="space-y-1">{dayTasks.slice(0, 3).map((task) => <button key={task.id} onClick={() => onEdit(task)} title={task.title} className={cn("block w-full truncate rounded px-1.5 py-1 text-[9px]", task.done ? "bg-secondary text-muted-foreground line-through" : task.priority === "High" ? "bg-red-500/10 text-red-500" : "bg-primary/10 text-primary")}>{task.title}</button>)}{dayTasks.length > 3 && <div className="px-1 text-[9px] text-muted-foreground">+{dayTasks.length - 3} more</div>}</div></div>})}</div></CardContent></Card>
-    <Card><CardContent className="p-5"><div className="mb-5"><h2 className="text-sm font-semibold">Timeline</h2><p className="mt-1 text-xs text-muted-foreground">What&apos;s approaching and what just closed.</p></div><div className="mb-3 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Upcoming</div>{upcoming.length ? <div className="space-y-1">{upcoming.map((task) => { const project = projects.find((item) => item.id === task.projectId); return <div key={task.id} className="group flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-accent/50"><button onClick={() => onToggle(task.id)}><Square className="size-4 text-muted-foreground" /></button><button onClick={() => onEdit(task)} className="min-w-0 flex-1 text-left"><div className="truncate text-xs">{task.title}</div><div className="mt-0.5 text-[9px] text-muted-foreground">{project?.name ?? "General"}</div></button><span className="font-mono text-[9px] text-muted-foreground">{new Date(`${task.dueDate}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>})}</div> : <div className="mb-5 rounded-lg bg-background/50 p-4 text-center text-xs text-muted-foreground">No upcoming deadlines</div>}<div className="mb-3 mt-6 border-t border-border pt-4 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Recently completed</div>{completed.length ? <div className="space-y-1">{completed.map((task) => <button key={task.id} onClick={() => onToggle(task.id)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-accent/50"><CheckCircle2 className="size-4 shrink-0 text-emerald-400" /><span className="min-w-0 flex-1 truncate text-xs text-muted-foreground line-through">{task.title}</span><span className="font-mono text-[9px] text-muted-foreground">{new Date(task.completedAt ?? task.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></button>)}</div> : <div className="text-xs text-muted-foreground">Completed tasks will appear here.</div>}</CardContent></Card>
-  </section>;
+  function jumpToToday() {
+    setCursor(currentTodayCursor);
+    setSelectedDate(todayKey);
+  }
+
+  const selectedDateFormatted = useMemo(() => {
+    try {
+      const [y, m, d] = selectedDate.split("-").map(Number);
+      const date = new Date(Date.UTC(y, m - 1, d, 12));
+      return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+    } catch {
+      return selectedDate;
+    }
+  }, [selectedDate]);
+
+  return (
+    <section id="calendar" className="mb-10 grid gap-5 2xl:grid-cols-[1.4fr_0.8fr]">
+      {/* Calendar Card */}
+      <Card className="overflow-hidden">
+        <CardContent className="p-4 sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <CalendarDays className="size-4 text-primary" />
+                <h2 className="text-sm font-semibold">Planning calendar</h2>
+                {monthDeadlinesCount > 0 && (
+                  <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
+                    {monthDeadlinesCount} deadline{monthDeadlinesCount === 1 ? "" : "s"}
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Deadlines and milestones across every project.</p>
+            </div>
+
+            <div className="flex items-center gap-1.5 self-start sm:self-auto">
+              {(!isCurrentMonth || selectedDate !== todayKey) && (
+                <Button variant="outline" size="sm" className="h-7 text-xs font-normal" onClick={jumpToToday}>
+                  Today
+                </Button>
+              )}
+              <div className="flex items-center rounded-lg border border-border bg-background/50 p-0.5">
+                <Button variant="ghost" size="icon" className="size-7" onClick={() => moveMonth(-1)} aria-label="Previous month">
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <div className="min-w-28 text-center text-xs font-medium">{monthLabel}</div>
+                <Button variant="ghost" size="icon" className="size-7" onClick={() => moveMonth(1)} aria-label="Next month">
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Calendar Grid Matrix */}
+          <div className="overflow-hidden rounded-xl border border-border/80 bg-background/30">
+            <div className="grid grid-cols-7 border-b border-border bg-secondary/30 text-center font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                <div key={day} className="py-2">
+                  <span className="hidden sm:inline">{day}</span>
+                  <span className="sm:hidden">{day.slice(0, 1)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 divide-x divide-y divide-border/60">
+              {days.map((date) => {
+                const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+                const dayTasks = dueTasks.filter((task) => task.dueDate === key);
+                const currentMonth = date.getUTCMonth() === cursor.month;
+                const isToday = key === todayKey;
+                const isSelected = key === selectedDate;
+                const hasOverdue = dayTasks.some((t) => !t.done && key < todayKey);
+                const hasHigh = dayTasks.some((t) => !t.done && t.priority === "High");
+                const hasTasks = dayTasks.length > 0;
+
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelectedDate(key)}
+                    className={cn(
+                      "group relative min-h-12 p-1 text-left transition sm:min-h-24 sm:p-1.5 focus:outline-none",
+                      !currentMonth && "bg-secondary/15 text-muted-foreground/40",
+                      currentMonth && "hover:bg-accent/40",
+                      isToday && "bg-primary/5",
+                      isSelected && "ring-1 ring-inset ring-primary bg-primary/10"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={cn(
+                          "grid size-5 place-items-center rounded-full text-[10px] transition sm:size-6",
+                          isToday && "bg-primary font-bold text-primary-foreground",
+                          !isToday && isSelected && "font-semibold text-primary",
+                          !isToday && !isSelected && "text-muted-foreground group-hover:text-foreground"
+                        )}
+                      >
+                        {date.getUTCDate()}
+                      </span>
+
+                      {/* Mobile indicators */}
+                      <div className="flex items-center gap-0.5 sm:hidden">
+                        {hasOverdue ? (
+                          <span className="size-1.5 rounded-full bg-red-500" />
+                        ) : hasHigh ? (
+                          <span className="size-1.5 rounded-full bg-amber-500" />
+                        ) : hasTasks ? (
+                          <span className="size-1.5 rounded-full bg-primary" />
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* Desktop task pills */}
+                    <div className="mt-1 hidden space-y-1 sm:block">
+                      {dayTasks.slice(0, 2).map((task) => (
+                        <div
+                          key={task.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(task);
+                          }}
+                          title={task.title}
+                          className={cn(
+                            "block w-full truncate rounded px-1.5 py-0.5 text-left text-[9px] font-medium transition hover:brightness-110",
+                            task.done
+                              ? "bg-secondary text-muted-foreground line-through opacity-70"
+                              : key < todayKey
+                              ? "border border-red-500/30 bg-red-500/10 text-red-500"
+                              : task.priority === "High"
+                              ? "border border-amber-500/30 bg-amber-500/10 text-amber-500"
+                              : "border border-primary/20 bg-primary/10 text-primary"
+                          )}
+                        >
+                          {task.title}
+                        </div>
+                      ))}
+                      {dayTasks.length > 2 && (
+                        <div className="font-mono text-[9px] text-muted-foreground">
+                          +{dayTasks.length - 2} more
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Selected Day Agenda Section */}
+          <div className="mt-4 rounded-xl border border-border/70 bg-background/50 p-3.5">
+            <div className="mb-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock3 className="size-3.5 text-primary" />
+                <span className="text-xs font-semibold">
+                  {selectedDate === todayKey ? "Today · " : ""}
+                  {selectedDateFormatted}
+                </span>
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  ({selectedDayTasks.length} task{selectedDayTasks.length === 1 ? "" : "s"})
+                </span>
+              </div>
+              {selectedDate !== todayKey && (
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setSelectedDate(todayKey)}>
+                  Select Today
+                </Button>
+              )}
+            </div>
+
+            {selectedDayTasks.length ? (
+              <div className="space-y-1.5">
+                {selectedDayTasks.map((task) => {
+                  const project = projects.find((item) => item.id === task.projectId);
+                  const isOverdue = !task.done && selectedDate < todayKey;
+                  return (
+                    <div
+                      key={task.id}
+                      className="group/day flex items-center gap-2.5 rounded-lg border border-border/40 bg-card/60 p-2 text-xs transition hover:bg-accent/40"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onToggle(task.id)}
+                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                        aria-label={task.done ? "Mark task undone" : "Mark task done"}
+                      >
+                        {task.done ? (
+                          <CheckCircle2 className="size-4 text-emerald-400" />
+                        ) : (
+                          <Square className="size-4" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onEdit(task)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <div className={cn("truncate font-medium", task.done && "text-muted-foreground line-through")}>
+                          {task.title}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          {project && <span className="truncate">{project.name}</span>}
+                          {isOverdue && <span className="text-red-500 font-medium">Overdue</span>}
+                        </div>
+                      </button>
+                      <Badge
+                        className={cn(
+                          "shrink-0 text-[10px]",
+                          task.priority === "High"
+                            ? "border-red-500/20 bg-red-500/10 text-red-500"
+                            : "border-border bg-secondary text-muted-foreground"
+                        )}
+                      >
+                        {task.priority ?? "Medium"}
+                      </Badge>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-7 shrink-0 opacity-0 group-hover/day:opacity-100"
+                        onClick={() => onEdit(task)}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-3 text-center text-xs text-muted-foreground">
+                No deadlines scheduled for this day.
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Timeline Card */}
+      <Card className="overflow-hidden">
+        <CardContent className="p-4 sm:p-5">
+          <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold">Timeline & Flow</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Approaching milestones & closed items.</p>
+            </div>
+
+            <div className="flex self-start rounded-lg border border-border bg-background/50 p-0.5 sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setTimelineTab("upcoming")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition",
+                  timelineTab === "upcoming" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Upcoming ({overdue.length + upcoming.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTimelineTab("completed")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition",
+                  timelineTab === "completed" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Recent ({completed.length})
+              </button>
+            </div>
+          </div>
+
+          {timelineTab === "upcoming" ? (
+            <div className="space-y-4">
+              {overdue.length > 0 && (
+                <div>
+                  <div className="mb-2 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-wider text-red-500">
+                    <AlertCircle className="size-3" />
+                    <span>Overdue ({overdue.length})</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {overdue.map((task) => {
+                      const project = projects.find((item) => item.id === task.projectId);
+                      return (
+                        <div
+                          key={task.id}
+                          className="group/overdue flex items-center gap-2.5 rounded-lg border border-red-500/20 bg-red-500/5 p-2 text-xs transition hover:bg-red-500/10"
+                        >
+                          <button type="button" onClick={() => onToggle(task.id)} className="shrink-0 text-muted-foreground hover:text-foreground">
+                            <Square className="size-4 text-red-500" />
+                          </button>
+                          <button type="button" onClick={() => onEdit(task)} className="min-w-0 flex-1 text-left">
+                            <div className="truncate font-medium text-foreground">{task.title}</div>
+                            <div className="mt-0.5 flex items-center gap-2 text-[9px] text-muted-foreground">
+                              {project && <span className="truncate">{project.name}</span>}
+                              <span className="font-mono text-red-400">Due {task.dueDate}</span>
+                            </div>
+                          </button>
+                          <Badge className="shrink-0 border-red-500/20 bg-red-500/10 text-[10px] text-red-500">
+                            {task.priority ?? "Medium"}
+                          </Badge>
+                          <Button size="icon" variant="ghost" className="size-7 opacity-0 group-hover/overdue:opacity-100" onClick={() => onEdit(task)}>
+                            <Pencil className="size-3" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <div className="mb-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                  Upcoming Schedule
+                </div>
+                {upcoming.length ? (
+                  <div className="relative space-y-2.5 before:absolute before:bottom-2 before:left-[11px] before:top-2 before:w-[2px] before:bg-border/60">
+                    {upcoming.map((task) => {
+                      const project = projects.find((item) => item.id === task.projectId);
+                      const isDueToday = task.dueDate === todayKey;
+                      return (
+                        <div key={task.id} className="group/item relative flex items-start gap-3 pl-0">
+                          <button
+                            type="button"
+                            onClick={() => onToggle(task.id)}
+                            className={cn(
+                              "relative z-10 mt-1 grid size-6 shrink-0 place-items-center rounded-full border bg-background transition hover:scale-105",
+                              isDueToday ? "border-primary text-primary" : "border-border text-muted-foreground hover:border-primary"
+                            )}
+                          >
+                            <Square className="size-3" />
+                          </button>
+                          <div className="min-w-0 flex-1 rounded-lg border border-border/50 bg-background/40 p-2.5 transition hover:bg-accent/30">
+                            <div className="flex items-start justify-between gap-2">
+                              <button type="button" onClick={() => onEdit(task)} className="min-w-0 flex-1 text-left font-medium">
+                                <div className="truncate text-xs">{task.title}</div>
+                              </button>
+                              <span
+                                className={cn(
+                                  "shrink-0 font-mono text-[10px]",
+                                  isDueToday ? "font-semibold text-primary" : "text-muted-foreground"
+                                )}
+                              >
+                                {isDueToday ? "Today" : task.dueDate ? new Date(`${task.dueDate}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : ""}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                              <span className="truncate">{project?.name ?? "General"}</span>
+                              <div className="flex items-center gap-1.5">
+                                {task.priority === "High" && (
+                                  <Badge className="border-red-500/20 bg-red-500/10 px-1.5 py-0 text-[9px] text-red-500">High</Badge>
+                                )}
+                                <Button size="icon" variant="ghost" className="size-6 opacity-0 group-hover/item:opacity-100" onClick={() => onEdit(task)}>
+                                  <Pencil className="size-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-background/50 p-6 text-center text-xs text-muted-foreground">
+                    Clear runway. No upcoming deadlines.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="mb-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                Completed History
+              </div>
+              {completed.length ? (
+                <div className="space-y-1.5">
+                  {completed.map((task) => {
+                    const project = projects.find((item) => item.id === task.projectId);
+                    return (
+                      <div
+                        key={task.id}
+                        className="group/done flex items-center gap-2.5 rounded-lg border border-border/40 bg-background/30 p-2 text-xs transition hover:bg-accent/30"
+                      >
+                        <button type="button" onClick={() => onToggle(task.id)} className="shrink-0 text-emerald-400 hover:text-muted-foreground">
+                          <CheckCircle2 className="size-4" />
+                        </button>
+                        <button type="button" onClick={() => onEdit(task)} className="min-w-0 flex-1 text-left">
+                          <div className="truncate text-xs text-muted-foreground line-through">{task.title}</div>
+                          <div className="text-[10px] text-muted-foreground/70">{project?.name ?? "General"}</div>
+                        </button>
+                        <span className="font-mono text-[9px] text-muted-foreground">
+                          {new Date(task.completedAt ?? task.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-lg bg-background/50 p-6 text-center text-xs text-muted-foreground">
+                  No completed tasks recorded yet.
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </section>
+  );
 }
 
 function ProjectCard({ project, intelligenceEntry, onDelete, onEdit, onOpen }: { project: Project; intelligenceEntry?: ProjectIntelligenceEntry; onDelete: () => void; onEdit: () => void; onOpen: () => void }) {
