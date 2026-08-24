@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Activity, AlertCircle, Archive, ArrowRightCircle, CalendarDays, CheckCircle2, CircleDot, Clock3, Command,
-  DatabaseBackup, Download, ExternalLink, Flame, Inbox, CornerDownLeft, Github, Grid2X2, Keyboard, LayoutDashboard,
+  DatabaseBackup, Download, ExternalLink, Flame, Inbox, KeyRound, CornerDownLeft, Github, Grid2X2, Keyboard, LayoutDashboard,
   Lightbulb, ListChecks, ListFilter, Pencil, BookOpenCheck, ClipboardCheck, DownloadCloud, Gauge, Megaphone, Plus,
   RefreshCw, Rocket, RotateCcw, Search, Settings, Sparkles, Square, Target, TerminalSquare, Trash2, Upload, X,
 } from "lucide-react";
@@ -42,6 +44,7 @@ type SnapshotNotice = { tone: "success" | "error"; message: string; authenticati
 type SnapshotHistoryItem = { id: string; createdAt: string };
 
 export function Dashboard() {
+  const router = useRouter();
   const [workspace, setWorkspace] = useState<Workspace>(emptyWorkspace);
   const [ready, setReady] = useState(false);
   const [query, setQuery] = useState("");
@@ -346,6 +349,10 @@ export function Dashboard() {
     { id: "projects", section: "Navigate", label: "Go to projects", hint: "Project grid", icon: <Grid2X2 />, run: () => document.querySelector("#projects")?.scrollIntoView() },
     { id: "tasks", section: "Navigate", label: "Go to tasks", hint: "Daily actions", icon: <ListChecks />, run: () => document.querySelector("#tasks")?.scrollIntoView() },
     { id: "activity", section: "Navigate", label: "Go to activity", hint: "Workspace history", icon: <Activity />, run: () => document.querySelector("#activity")?.scrollIntoView() },
+    { id: "leads", section: "Navigate", label: "Client leads", hint: "Lead pipeline & inquiries", icon: <Inbox />, run: () => router.push("/dashboard/leads") },
+    { id: "marketing", section: "Navigate", label: "Marketing operations", hint: "Acquisition engine", icon: <Megaphone />, run: () => router.push("/dashboard/marketing") },
+    { id: "consultations", section: "Navigate", label: "Consultation playbooks", hint: "Discovery playbooks", icon: <ClipboardCheck />, run: () => router.push("/dashboard/consultations") },
+    { id: "account", section: "Workspace", label: "Account and passkeys", hint: "Owner credentials", icon: <KeyRound />, run: () => router.push("/account") },
     { id: "refresh", section: "Workspace", label: "Refresh live status", hint: "GitHub + Vercel", icon: <RefreshCw />, run: () => void refreshIntelligence() },
     { id: "snapshot", section: "Workspace", label: "Create cloud snapshot", hint: "Neon backup", icon: <DatabaseBackup />, run: () => void createSnapshot() },
     { id: "export", section: "Workspace", label: "Export workspace", hint: "Download JSON", icon: <Download />, run: exportWorkspace },
@@ -397,9 +404,27 @@ export function Dashboard() {
       <div className="relative mx-auto flex min-h-screen w-full min-w-0 max-w-[1600px]">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/70 bg-card/30 p-4 backdrop-blur lg:flex">
           <div className="flex h-14 items-center gap-3 px-2"><div className="grid size-9 place-items-center rounded-lg border border-primary/30 bg-primary/10 text-primary"><Command className="size-5" /></div><div><div className="text-sm font-bold tracking-tight">WORK//CTRL</div><div className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">Project operating system</div></div></div>
-          <nav className="mt-8 space-y-1 text-sm"><a className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2.5 font-medium text-primary" href="#"><LayoutDashboard className="size-4" />Command center</a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="/dashboard/marketing"><Megaphone className="size-4" />Marketing</a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="/dashboard/consultations"><ClipboardCheck className="size-4" />Consultations</a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#projects"><Grid2X2 className="size-4" />Projects<span className="ml-auto font-mono text-[10px]">{workspace.projects.length}</span></a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#tasks"><ListChecks className="size-4" />Tasks<span className="ml-auto font-mono text-[10px]">{openTasks}</span></a><a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground" href="#activity"><Activity className="size-4" />Activity</a></nav>
-          <div className="mt-auto rounded-xl border border-border bg-background/60 p-3"><div className="mb-2 flex items-center gap-2 text-xs font-medium"><TerminalSquare className="size-4 text-primary" />Cloud workspace</div><div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground"><span className={cn("size-1.5 rounded-full", syncState === "saved" ? "bg-emerald-400" : syncState === "offline" || syncState === "conflict" ? "bg-amber-400" : "animate-pulse bg-primary")} />{syncState === "loading" ? "Loading cloud data" : syncState === "saving" ? "Saving changes" : syncState === "offline" ? "Offline · Saved locally" : syncState === "conflict" ? "Cloud conflict · Resolution required" : "Synced across devices"}</div></div>
+          <nav className="mt-6 space-y-1 text-sm">
+            <div className="px-3 py-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Workspace</div>
+            <a className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2.5 font-medium text-primary" href="#"><LayoutDashboard className="size-4" />Command center</a>
+            <a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition hover:bg-accent hover:text-foreground" href="#projects"><Grid2X2 className="size-4" />Projects<span className="ml-auto font-mono text-[10px]">{workspace.projects.length}</span></a>
+            <a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition hover:bg-accent hover:text-foreground" href="#tasks"><ListChecks className="size-4" />Tasks<span className="ml-auto font-mono text-[10px]">{openTasks}</span></a>
+            <a className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition hover:bg-accent hover:text-foreground" href="#activity"><Activity className="size-4" />Activity</a>
+
+            <div className="pt-4 px-3 py-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Operations</div>
+            <Link className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition hover:bg-accent hover:text-foreground" href="/dashboard/leads"><Inbox className="size-4" />Client leads</Link>
+            <Link className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition hover:bg-accent hover:text-foreground" href="/dashboard/marketing"><Megaphone className="size-4" />Marketing</Link>
+            <Link className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-muted-foreground transition hover:bg-accent hover:text-foreground" href="/dashboard/consultations"><ClipboardCheck className="size-4" />Consultations</Link>
+          </nav>
+          <div className="mt-auto space-y-3">
+            <div className="space-y-1">
+              <button type="button" onClick={() => setSettingsOpen(true)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs text-muted-foreground transition hover:bg-accent hover:text-foreground"><Settings className="size-4" />Workspace settings</button>
+              <Link href="/account" className="flex items-center gap-3 rounded-lg px-3 py-2 text-xs text-muted-foreground transition hover:bg-accent hover:text-foreground"><KeyRound className="size-4" />Account & passkeys</Link>
+            </div>
+            <div className="rounded-xl border border-border bg-background/60 p-3"><div className="mb-2 flex items-center gap-2 text-xs font-medium"><TerminalSquare className="size-4 text-primary" />Cloud workspace</div><div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground"><span className={cn("size-1.5 rounded-full", syncState === "saved" ? "bg-emerald-400" : syncState === "offline" || syncState === "conflict" ? "bg-amber-400" : "animate-pulse bg-primary")} />{syncState === "loading" ? "Loading cloud data" : syncState === "saving" ? "Saving changes" : syncState === "offline" ? "Offline · Saved locally" : syncState === "conflict" ? "Cloud conflict · Resolution required" : "Synced across devices"}</div></div>
+          </div>
         </aside>
+
 
         <main className="min-w-0 flex-1 px-4 pb-16 sm:px-6 xl:px-10">
           <header className="flex h-20 min-w-0 items-center justify-between border-b border-border/60"><div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground"><CircleDot className={cn("size-3 shrink-0", syncState === "offline" || syncState === "conflict" ? "text-amber-400" : "text-emerald-400")} /><span className="hidden truncate sm:inline">{syncState === "offline" ? "Working offline" : syncState === "conflict" ? "Resolve the cloud conflict" : syncState === "saving" ? "Saving…" : "Workspace ready"}</span></div><div className="flex shrink-0 items-center gap-2"><Button variant="outline" className="hidden text-muted-foreground md:flex" onClick={() => setCommandOpen(true)}><Search />Commands <kbd className="ml-4 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[9px]">Ctrl K</kbd></Button><Button variant="outline" size="icon" onClick={() => void refreshIntelligence()} aria-label="Refresh project status" disabled={refreshing}><RefreshCw className={cn(refreshing && "animate-spin")} /></Button><ThemeToggle /><Button onClick={() => setComposer("project")}><Plus /><span className="hidden sm:inline">New project</span></Button></div></header>
