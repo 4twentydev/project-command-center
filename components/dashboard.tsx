@@ -7,12 +7,13 @@ import {
   Activity, AlertCircle, Archive, ArrowRightCircle, CalendarDays, CheckCircle2, CircleDot, Clock3, Command,
   DatabaseBackup, Download, ExternalLink, Flame, Inbox, KeyRound, CornerDownLeft, Github, Grid2X2, Keyboard, LayoutDashboard,
   Lightbulb, ListChecks, ListFilter, Pencil, BookOpenCheck, ClipboardCheck, DownloadCloud, Gauge, Megaphone, Plus,
-  RefreshCw, Rocket, RotateCcw, Search, Settings, Sparkles, Square, Target, TerminalSquare, Trash2, Upload, X,
+  RefreshCw, Rocket, RotateCcw, RotateCw, Search, Settings, Sparkles, Square, Target, TerminalSquare, Trash2, Upload, X,
 } from "lucide-react";
 import type { Project, ProjectKind } from "@/lib/projects";
 import { defaultWorkspaceSettings, emptyWorkspace, workspaceStorageKey, type InboxItem, type ProjectNote, type Task, type WeeklyReview, type Workspace, type WorkspaceSettings } from "@/lib/workspace";
 import { selectFocusTasks, selectTasksForView } from "@/lib/planning";
 import { isWorkspaceData, normalizeWorkspace } from "@/lib/workspace-validation";
+import { createHistoryState, pushHistory, undoHistory, redoHistory, type WorkspaceHistoryState } from "@/lib/workspace-history";
 import { cn } from "@/lib/utils";
 import { dateKeyInTimeZone, normalizeTimeZone } from "@/lib/date-time";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { readVersionedWorkspace, saveVersionedWorkspace } from "@/lib/versioned-workspace-client";
 import { createWorkspaceSnapshotRequester, requestWorkspaceSnapshotRestore } from "@/lib/workspace-snapshot-client";
 import { fetchProjectIntelligence, markProjectIntelligenceRefreshing, mergeProjectIntelligenceResults, type ProjectIntelligenceEntry } from "@/lib/project-intelligence-client";
-import type { ComposerMode, Confirmation, ImportCandidate, UndoState } from "@/components/dashboard/dashboard-feature-types";
+import type { ComposerMode, Confirmation, ImportCandidate } from "@/components/dashboard/dashboard-feature-types";
 import {
   Composer,
   ConfirmDialog,
@@ -43,10 +44,15 @@ type TaskView = "Today" | "Next" | "All";
 type WorkspaceConflict = { local: Workspace; cloud: Workspace | null; cloudVersion: string | null; loading: boolean; resolving: boolean; error: string | null };
 type SnapshotNotice = { tone: "success" | "error"; message: string; authenticationRequired?: boolean };
 type SnapshotHistoryItem = { id: string; createdAt: string };
+type UndoToast = { label: string; canUndo: boolean; canRedo: boolean; actionType: "mutate" | "undo" | "redo" };
 
 export function Dashboard() {
   const router = useRouter();
   const [workspace, setWorkspace] = useState<Workspace>(emptyWorkspace);
+  const [history, setHistory] = useState<WorkspaceHistoryState>(() => createHistoryState(emptyWorkspace));
+  const historyRef = useRef<WorkspaceHistoryState>(history);
+  historyRef.current = history;
+  const [undoToast, setUndoToast] = useState<UndoToast | null>(null);
   const [ready, setReady] = useState(false);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<"All" | ProjectKind>("All");
@@ -59,7 +65,6 @@ export function Dashboard() {
   const [intelligence, setIntelligence] = useState<Record<string, ProjectIntelligenceEntry>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
-  const [undo, setUndo] = useState<UndoState | null>(null);
   const [lastSnapshotAt, setLastSnapshotAt] = useState<string | null>(null);
   const [snapshots, setSnapshots] = useState<SnapshotHistoryItem[]>([]);
   const [snapshotting, setSnapshotting] = useState(false);
@@ -114,9 +119,13 @@ export function Dashboard() {
         if (payload.workspace) {
           const normalized = normalizeWorkspace(payload.workspace);
           setWorkspace(normalized);
+          setHistory(createHistoryState(normalized));
+          historyRef.current = createHistoryState(normalized);
           localStorage.setItem(workspaceStorageKey, JSON.stringify(normalized));
         } else {
           setWorkspace(localWorkspace);
+          setHistory(createHistoryState(localWorkspace));
+          historyRef.current = createHistoryState(localWorkspace);
           if (localWorkspace.projects.length || localWorkspace.tasks.length || localWorkspace.activity.length) {
             const migrationResponse = await fetch("/api/workspace", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(localWorkspace) });
             if (!migrationResponse.ok) throw new Error("Cloud migration failed");
@@ -130,6 +139,8 @@ export function Dashboard() {
       } catch {
         if (cancelled) return;
         setWorkspace(localWorkspace);
+        setHistory(createHistoryState(localWorkspace));
+        historyRef.current = createHistoryState(localWorkspace);
         setSyncState("offline");
       } finally {
         if (!cancelled) setReady(true);
@@ -181,37 +192,217 @@ export function Dashboard() {
   }, [ready, intelligenceKey, refreshIntelligence]);
 
   useEffect(() => {
-    if (!undo) return;
-    const timer = window.setTimeout(() => setUndo(null), 8000);
+    if (!undoToast) return;
+    const timer = window.setTimeout(() => setUndoToast(null), 6000);
     return () => window.clearTimeout(timer);
-  }, [undo]);
+  }, [undoToast]);
+
+  const updateWorkspace = useCallback((label: string, updater: (current: Workspace) => Workspace) => {
+    setWorkspace((current) => {
+      const next = updater(current);
+      const nextHistory = pushHistory(historyRef.current, label, next);
+      historyRef.current = nextHistory;
+      setHistory(nextHistory);
+      setUndoToast({
+        label,
+        canUndo: true,
+        canRedo: false,
+        actionType: "mutate",
+      });
+      return next;
+    });
+  }, []);
+
+  const performUndo = useCallback(() => {
+    const currentHistory = historyRef.current;
+    if (currentHistory.past.length === 0) return false;
+    const result = undoHistory(currentHistory);
+    if (result.undoneEntry) {
+      historyRef.current = result.state;
+      setHistory(result.state);
+      setWorkspace(result.state.present);
+      setUndoToast({
+        label: `Undid "${result.undoneEntry.label}"`,
+        canUndo: result.state.past.length > 0,
+        canRedo: result.state.future.length > 0,
+        actionType: "undo",
+      });
+      return true;
+    }
+    return false;
+  }, []);
+
+  const performRedo = useCallback(() => {
+    const currentHistory = historyRef.current;
+    if (currentHistory.future.length === 0) return false;
+    const result = redoHistory(currentHistory);
+    if (result.redoneEntry) {
+      historyRef.current = result.state;
+      setHistory(result.state);
+      setWorkspace(result.state.present);
+      setUndoToast({
+        label: `Redid "${result.redoneEntry.label}"`,
+        canUndo: result.state.past.length > 0,
+        canRedo: result.state.future.length > 0,
+        actionType: "redo",
+      });
+      return true;
+    }
+    return false;
+  }, []);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault(); setCommandOpen((open) => !open); return;
+        event.preventDefault();
+        setCommandOpen((open) => !open);
+        return;
       }
-      if (event.key === "Escape") { setCommandOpen(false); return; }
+      if (event.key === "Escape") {
+        setCommandOpen(false);
+        return;
+      }
       const target = event.target as HTMLElement | null;
-      const typing = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.tagName === "SELECT";
-      if (!typing && event.altKey && event.key.toLowerCase() === "n") { event.preventDefault(); setComposer("task"); }
-      if (!typing && event.altKey && event.key.toLowerCase() === "i") { event.preventDefault(); setComposer("idea"); }
+      const isTyping =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        Boolean(target?.isContentEditable);
+
+      // Ctrl+Z or Cmd+Z -> Undo (if not actively typing in an input field)
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
+        if (!isTyping) {
+          event.preventDefault();
+          performUndo();
+          return;
+        }
+      }
+
+      // Ctrl+Shift+Z, Cmd+Shift+Z, or Ctrl+Y -> Redo
+      if (
+        ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "z") ||
+        ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "y")
+      ) {
+        if (!isTyping) {
+          event.preventDefault();
+          performRedo();
+          return;
+        }
+      }
+
+      if (!isTyping && event.altKey && event.key.toLowerCase() === "n") {
+        event.preventDefault();
+        setComposer("task");
+      }
+      if (!isTyping && event.altKey && event.key.toLowerCase() === "i") {
+        event.preventDefault();
+        setComposer("idea");
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [performUndo, performRedo]);
 
   function record(message: string) {
     return { id: crypto.randomUUID(), message, createdAt: new Date().toISOString() };
   }
-  function addProject(project: Project) { setWorkspace((current) => ({ ...current, projects: [project, ...current.projects], activity: [record(`Created project · ${project.name}`), ...current.activity].slice(0, 30) })); }
-  function addTask(title: string, projectId?: string, priority?: Task["priority"], dueDate?: string) { setWorkspace((current) => ({ ...current, tasks: [{ id: crypto.randomUUID(), title, projectId, priority: priority ?? current.settings?.defaultTaskPriority ?? "Medium", dueDate, done: false, createdAt: new Date().toISOString() }, ...current.tasks], activity: [record(`Added task · ${title}`), ...current.activity].slice(0, 30) })); }
-  function addIdea(idea: string) { setWorkspace((current) => ({ ...current, inbox: [{ id: crypto.randomUUID(), text: idea, createdAt: new Date().toISOString() }, ...(current.inbox ?? [])], activity: [record(`Captured idea · ${idea}`), ...current.activity].slice(0, 30) })); }
-  function toggleTask(id: string) { setWorkspace((current) => { const task = current.tasks.find((item) => item.id === id); return { ...current, tasks: current.tasks.map((item) => item.id === id ? { ...item, done: !item.done, completedAt: item.done ? undefined : new Date().toISOString() } : item), activity: task ? [record(`${task.done ? "Reopened" : "Completed"} task · ${task.title}`), ...current.activity].slice(0, 30) : current.activity }; }); }
-  function deleteProject(id: string) { const project = workspace.projects.find((item) => item.id === id); if (!project) return; setConfirmation({ title: `Delete ${project.name}?`, message: "The project will be removed and its tasks moved to General. You can undo this briefly afterward.", actionLabel: "Delete project", onConfirm: () => { setUndo({ label: `Deleted ${project.name}`, workspace }); setWorkspace((current) => ({ ...current, projects: current.projects.filter((item) => item.id !== id), tasks: current.tasks.map((task) => task.projectId === id ? { ...task, projectId: undefined } : task), activity: [record(`Removed project · ${project.name}`), ...current.activity].slice(0, 30) })); } }); }
-  function updateProject(project: Project) { setWorkspace((current) => ({ ...current, projects: current.projects.map((item) => item.id === project.id ? project : item), activity: [record(`Updated project · ${project.name}`), ...current.activity].slice(0, 30) })); }
-  function updateTask(task: Task) { setWorkspace((current) => ({ ...current, tasks: current.tasks.map((item) => item.id === task.id ? task : item), activity: [record(`Updated task · ${task.title}`), ...current.activity].slice(0, 30) })); }
-  function deleteTask(id: string) { const task = workspace.tasks.find((item) => item.id === id); if (!task) return; setConfirmation({ title: "Delete this task?", message: `“${task.title}” will be removed. You can undo this briefly afterward.`, actionLabel: "Delete task", onConfirm: () => { setUndo({ label: `Deleted ${task.title}`, workspace }); setWorkspace((current) => ({ ...current, tasks: current.tasks.filter((item) => item.id !== id), activity: [record(`Removed task · ${task.title}`), ...current.activity].slice(0, 30) })); } }); }
+  function addProject(project: Project) {
+    updateWorkspace(`Created project · ${project.name}`, (current) => ({
+      ...current,
+      projects: [project, ...current.projects],
+      activity: [record(`Created project · ${project.name}`), ...current.activity].slice(0, 30),
+    }));
+  }
+  function addTask(title: string, projectId?: string, priority?: Task["priority"], dueDate?: string) {
+    updateWorkspace(`Added task · ${title}`, (current) => ({
+      ...current,
+      tasks: [
+        {
+          id: crypto.randomUUID(),
+          title,
+          projectId,
+          priority: priority ?? current.settings?.defaultTaskPriority ?? "Medium",
+          dueDate,
+          done: false,
+          createdAt: new Date().toISOString(),
+        },
+        ...current.tasks,
+      ],
+      activity: [record(`Added task · ${title}`), ...current.activity].slice(0, 30),
+    }));
+  }
+  function addIdea(idea: string) {
+    updateWorkspace(`Captured idea · ${idea.length > 32 ? `${idea.slice(0, 30)}…` : idea}`, (current) => ({
+      ...current,
+      inbox: [{ id: crypto.randomUUID(), text: idea, createdAt: new Date().toISOString() }, ...(current.inbox ?? [])],
+      activity: [record(`Captured idea · ${idea}`), ...current.activity].slice(0, 30),
+    }));
+  }
+  function toggleTask(id: string) {
+    const task = workspace.tasks.find((item) => item.id === id);
+    const actionLabel = task ? `${task.done ? "Reopened" : "Completed"} task · ${task.title}` : "Toggled task";
+    updateWorkspace(actionLabel, (current) => {
+      const target = current.tasks.find((item) => item.id === id);
+      return {
+        ...current,
+        tasks: current.tasks.map((item) =>
+          item.id === id
+            ? { ...item, done: !item.done, completedAt: item.done ? undefined : new Date().toISOString() }
+            : item
+        ),
+        activity: target
+          ? [record(`${target.done ? "Reopened" : "Completed"} task · ${target.title}`), ...current.activity].slice(0, 30)
+          : current.activity,
+      };
+    });
+  }
+  function deleteProject(id: string) {
+    const project = workspace.projects.find((item) => item.id === id);
+    if (!project) return;
+    setConfirmation({
+      title: `Delete ${project.name}?`,
+      message: "The project will be removed and its tasks moved to General. You can undo this change with Ctrl+Z.",
+      actionLabel: "Delete project",
+      onConfirm: () => {
+        updateWorkspace(`Deleted project · ${project.name}`, (current) => ({
+          ...current,
+          projects: current.projects.filter((item) => item.id !== id),
+          tasks: current.tasks.map((task) => (task.projectId === id ? { ...task, projectId: undefined } : task)),
+          activity: [record(`Removed project · ${project.name}`), ...current.activity].slice(0, 30),
+        }));
+      },
+    });
+  }
+  function updateProject(project: Project) {
+    updateWorkspace(`Updated project · ${project.name}`, (current) => ({
+      ...current,
+      projects: current.projects.map((item) => (item.id === project.id ? project : item)),
+      activity: [record(`Updated project · ${project.name}`), ...current.activity].slice(0, 30),
+    }));
+  }
+  function updateTask(task: Task) {
+    updateWorkspace(`Updated task · ${task.title}`, (current) => ({
+      ...current,
+      tasks: current.tasks.map((item) => (item.id === task.id ? task : item)),
+      activity: [record(`Updated task · ${task.title}`), ...current.activity].slice(0, 30),
+    }));
+  }
+  function deleteTask(id: string) {
+    const task = workspace.tasks.find((item) => item.id === id);
+    if (!task) return;
+    setConfirmation({
+      title: "Delete this task?",
+      message: `“${task.title}” will be removed. You can undo this change with Ctrl+Z.`,
+      actionLabel: "Delete task",
+      onConfirm: () => {
+        updateWorkspace(`Deleted task · ${task.title}`, (current) => ({
+          ...current,
+          tasks: current.tasks.filter((item) => item.id !== id),
+          activity: [record(`Removed task · ${task.title}`), ...current.activity].slice(0, 30),
+        }));
+      },
+    });
+  }
 
   function downloadWorkspace(value: Workspace, filename = `work-ctrl-backup-${today}.json`) {
     const blob = new Blob([JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), workspace: value }, null, 2)], { type: "application/json" });
@@ -258,8 +449,22 @@ export function Dashboard() {
       const incoming: unknown = parsed && typeof parsed === "object" && "workspace" in parsed ? (parsed as { workspace?: unknown }).workspace : parsed;
       if (!isWorkspaceData(incoming)) throw new Error("Invalid backup");
       const normalized = normalizeWorkspace(incoming);
-      setConfirmation({ title: "Restore this backup?", message: "The current workspace will be replaced by the imported projects, tasks, and activity. You can undo this briefly afterward.", actionLabel: "Restore backup", onConfirm: () => { setUndo({ label: "Restored backup", workspace }); setWorkspace(normalized); } });
-    } catch { setConfirmation({ title: "Backup not recognized", message: "Choose a JSON backup exported from WORK//CTRL.", actionLabel: "Close", onConfirm: () => undefined }); }
+      setConfirmation({
+        title: "Restore this backup?",
+        message: "The current workspace will be replaced by the imported projects, tasks, and activity. You can undo this change with Ctrl+Z.",
+        actionLabel: "Restore backup",
+        onConfirm: () => {
+          updateWorkspace("Restored backup", () => normalized);
+        },
+      });
+    } catch {
+      setConfirmation({
+        title: "Backup not recognized",
+        message: "Choose a JSON backup exported from WORK//CTRL.",
+        actionLabel: "Close",
+        onConfirm: () => undefined,
+      });
+    }
     if (importInputRef.current) importInputRef.current.value = "";
   }
 
@@ -295,11 +500,9 @@ export function Dashboard() {
       const result = await requestWorkspaceSnapshotRestore(snapshot.id);
       if (result.status === "restored" && isWorkspaceData(result.workspace)) {
         const restored = normalizeWorkspace(result.workspace);
-        setUndo({ label: "Restored cloud snapshot", workspace });
+        updateWorkspace("Restored cloud snapshot", () => restored);
         workspaceVersionRef.current = result.updatedAt;
         conflictRef.current = false;
-        setWorkspace(restored);
-        localStorage.setItem(workspaceStorageKey, JSON.stringify(restored));
         setSnapshots((current) => [result.safetySnapshot, ...current.filter((item) => item.id !== result.safetySnapshot.id)].slice(0, 10));
         setLastSnapshotAt(result.safetySnapshot.createdAt);
         setSyncState("saved");
@@ -330,20 +533,146 @@ export function Dashboard() {
     });
   }
 
-  function resetWorkspace() { setConfirmation({ title: "Reset the entire workspace?", message: "All projects, tasks, ideas, and activity will be cleared. Export a backup or create a snapshot first. You can undo this briefly afterward.", actionLabel: "Reset workspace", onConfirm: () => { setUndo({ label: "Reset workspace", workspace }); setWorkspace(emptyWorkspace); } }); }
-  function inboxToTask(item: InboxItem) { setWorkspace((current) => ({ ...current, inbox: (current.inbox ?? []).filter((entry) => entry.id !== item.id), tasks: [{ id: crypto.randomUUID(), title: item.text, priority: "Medium", done: false, createdAt: new Date().toISOString() }, ...current.tasks], activity: [record(`Promoted inbox item to task · ${item.text}`), ...current.activity].slice(0, 30) })); }
-  function inboxToProject(item: InboxItem) { const now = new Date(); const project: Project = { id: crypto.randomUUID(), name: item.text.length > 48 ? `${item.text.slice(0, 45)}…` : item.text, eyebrow: "New concept", description: item.text, status: "Planning", kind: "Experiment", stack: [], updatedAt: now.toISOString(), updatedLabel: "Just now", note: "Define the next useful action.", progress: 0, accent: "violet" }; setWorkspace((current) => ({ ...current, inbox: (current.inbox ?? []).filter((entry) => entry.id !== item.id), projects: [project, ...current.projects], activity: [record(`Promoted inbox item to project · ${project.name}`), ...current.activity].slice(0, 30) })); }
-  function archiveInboxItem(item: InboxItem) { setWorkspace((current) => ({ ...current, inbox: (current.inbox ?? []).filter((entry) => entry.id !== item.id), activity: [record(`Archived inbox item · ${item.text}`), ...current.activity].slice(0, 30) })); }
-  function importProjects(candidates: ImportCandidate[]) { const imported: Project[] = candidates.map((candidate) => ({ id: crypto.randomUUID(), name: candidate.name, eyebrow: candidate.vercelProject ? "GitHub + Vercel" : "GitHub repository", description: candidate.description, status: "Active", kind: "Software", stack: candidate.stack, repo: candidate.repo, deployment: candidate.deployment, updatedAt: candidate.pushedAt, updatedLabel: "Imported", note: "Define the next useful action.", progress: 0, accent: candidate.vercelProject ? "cyan" : "violet" })); setWorkspace((current) => ({ ...current, projects: [...imported, ...current.projects], activity: [record(`Imported ${imported.length} project${imported.length === 1 ? "" : "s"} from GitHub`), ...current.activity].slice(0, 30) })); }
-  function saveSettings(settings: WorkspaceSettings) { setWorkspace((current) => ({ ...current, settings, activity: [record("Updated workspace settings"), ...current.activity].slice(0, 30) })); }
-  function addProjectNote(note: ProjectNote) { const project = workspace.projects.find((item) => item.id === note.projectId); setWorkspace((current) => ({ ...current, notes: [note, ...(current.notes ?? [])], activity: [record(`Added ${note.type.toLowerCase()} to ${project?.name ?? "project"}`), ...current.activity].slice(0, 30) })); }
-  function deleteProjectNote(note: ProjectNote) { setConfirmation({ title: "Delete journal entry?", message: "This entry will be removed from the project history. You can undo this briefly afterward.", actionLabel: "Delete entry", onConfirm: () => { setUndo({ label: "Deleted journal entry", workspace }); setWorkspace((current) => ({ ...current, notes: (current.notes ?? []).filter((item) => item.id !== note.id), activity: [record("Removed project journal entry"), ...current.activity].slice(0, 30) })); } }); }
+  function resetWorkspace() {
+    setConfirmation({
+      title: "Reset the entire workspace?",
+      message: "All projects, tasks, ideas, and activity will be cleared. Export a backup or create a snapshot first. You can undo this change with Ctrl+Z.",
+      actionLabel: "Reset workspace",
+      onConfirm: () => {
+        updateWorkspace("Reset workspace", () => emptyWorkspace);
+      },
+    });
+  }
+  function inboxToTask(item: InboxItem) {
+    updateWorkspace(`Promoted idea to task · ${item.text.length > 32 ? `${item.text.slice(0, 30)}…` : item.text}`, (current) => ({
+      ...current,
+      inbox: (current.inbox ?? []).filter((entry) => entry.id !== item.id),
+      tasks: [{ id: crypto.randomUUID(), title: item.text, priority: "Medium", done: false, createdAt: new Date().toISOString() }, ...current.tasks],
+      activity: [record(`Promoted inbox item to task · ${item.text}`), ...current.activity].slice(0, 30),
+    }));
+  }
+  function inboxToProject(item: InboxItem) {
+    const now = new Date();
+    const project: Project = {
+      id: crypto.randomUUID(),
+      name: item.text.length > 48 ? `${item.text.slice(0, 45)}…` : item.text,
+      eyebrow: "New concept",
+      description: item.text,
+      status: "Planning",
+      kind: "Experiment",
+      stack: [],
+      updatedAt: now.toISOString(),
+      updatedLabel: "Just now",
+      note: "Define the next useful action.",
+      progress: 0,
+      accent: "violet",
+    };
+    updateWorkspace(`Promoted idea to project · ${project.name}`, (current) => ({
+      ...current,
+      inbox: (current.inbox ?? []).filter((entry) => entry.id !== item.id),
+      projects: [project, ...current.projects],
+      activity: [record(`Promoted inbox item to project · ${project.name}`), ...current.activity].slice(0, 30),
+    }));
+  }
+  function archiveInboxItem(item: InboxItem) {
+    updateWorkspace(`Archived idea · ${item.text.length > 32 ? `${item.text.slice(0, 30)}…` : item.text}`, (current) => ({
+      ...current,
+      inbox: (current.inbox ?? []).filter((entry) => entry.id !== item.id),
+      activity: [record(`Archived inbox item · ${item.text}`), ...current.activity].slice(0, 30),
+    }));
+  }
+  function importProjects(candidates: ImportCandidate[]) {
+    const imported: Project[] = candidates.map((candidate) => ({
+      id: crypto.randomUUID(),
+      name: candidate.name,
+      eyebrow: candidate.vercelProject ? "GitHub + Vercel" : "GitHub repository",
+      description: candidate.description,
+      status: "Active",
+      kind: "Software",
+      stack: candidate.stack,
+      repo: candidate.repo,
+      deployment: candidate.deployment,
+      updatedAt: candidate.pushedAt,
+      updatedLabel: "Imported",
+      note: "Define the next useful action.",
+      progress: 0,
+      accent: candidate.vercelProject ? "cyan" : "violet",
+    }));
+    updateWorkspace(`Imported ${imported.length} project${imported.length === 1 ? "" : "s"} from GitHub`, (current) => ({
+      ...current,
+      projects: [...imported, ...current.projects],
+      activity: [record(`Imported ${imported.length} project${imported.length === 1 ? "" : "s"} from GitHub`), ...current.activity].slice(0, 30),
+    }));
+  }
+  function saveSettings(settings: WorkspaceSettings) {
+    updateWorkspace("Updated workspace settings", (current) => ({
+      ...current,
+      settings,
+      activity: [record("Updated workspace settings"), ...current.activity].slice(0, 30),
+    }));
+  }
+  function addProjectNote(note: ProjectNote) {
+    const project = workspace.projects.find((item) => item.id === note.projectId);
+    updateWorkspace(`Added ${note.type.toLowerCase()} note to ${project?.name ?? "project"}`, (current) => ({
+      ...current,
+      notes: [note, ...(current.notes ?? [])],
+      activity: [record(`Added ${note.type.toLowerCase()} to ${project?.name ?? "project"}`), ...current.activity].slice(0, 30),
+    }));
+  }
+  function deleteProjectNote(note: ProjectNote) {
+    setConfirmation({
+      title: "Delete journal entry?",
+      message: "This entry will be removed from the project history. You can undo this change with Ctrl+Z.",
+      actionLabel: "Delete entry",
+      onConfirm: () => {
+        updateWorkspace("Deleted journal entry", (current) => ({
+          ...current,
+          notes: (current.notes ?? []).filter((item) => item.id !== note.id),
+          activity: [record("Removed project journal entry"), ...current.activity].slice(0, 30),
+        }));
+      },
+    });
+  }
   function saveWeeklyReview(review: WeeklyReview) {
-    setWorkspace((current) => ({ ...current, reviews: [review, ...(current.reviews ?? [])].slice(0, 52), activity: [record("Completed weekly review"), ...current.activity].slice(0, 30) }));
+    updateWorkspace("Completed weekly review", (current) => ({
+      ...current,
+      reviews: [review, ...(current.reviews ?? [])].slice(0, 52),
+      activity: [record("Completed weekly review"), ...current.activity].slice(0, 30),
+    }));
     window.setTimeout(() => void createSnapshot(), 900);
   }
 
   const commandActions = [
+    ...(history.past.length > 0
+      ? [
+          {
+            id: "undo-last-action",
+            section: "Actions",
+            label: `Undo: ${history.past[history.past.length - 1].label}`,
+            hint: "Ctrl + Z",
+            icon: <RotateCcw />,
+            run: () => {
+              setCommandOpen(false);
+              performUndo();
+            },
+          },
+        ]
+      : []),
+    ...(history.future.length > 0
+      ? [
+          {
+            id: "redo-last-action",
+            section: "Actions",
+            label: `Redo: ${history.future[0].label}`,
+            hint: "Ctrl + Y",
+            icon: <RotateCw />,
+            run: () => {
+              setCommandOpen(false);
+              performRedo();
+            },
+          },
+        ]
+      : []),
     { id: "new-project", section: "Create", label: "New project", hint: "Create a workspace project", icon: <Grid2X2 />, run: () => setComposer("project") },
     { id: "new-task", section: "Create", label: "New task", hint: "Alt + N", icon: <ListChecks />, run: () => setComposer("task") },
     { id: "capture-idea", section: "Create", label: "Capture idea", hint: "Alt + I", icon: <Lightbulb />, run: () => setComposer("idea") },
@@ -362,12 +691,15 @@ export function Dashboard() {
     { id: "settings", section: "Workspace", label: "Workspace settings", hint: "Identity + defaults", icon: <Settings />, run: () => setSettingsOpen(true) },
     ...workspace.projects.map((project) => ({ id: `project-${project.id}`, section: "Projects", label: project.name, hint: `Edit · ${project.status}`, icon: <CircleDot />, run: () => setEditingProject(project) })),
     ...workspace.tasks.map((task) => ({ id: `task-${task.id}`, section: "Tasks", label: task.title, hint: `${task.done ? "Completed" : task.priority ?? "Medium"}${task.dueDate ? ` · ${task.dueDate}` : ""}`, icon: task.done ? <CheckCircle2 /> : <ListChecks />, run: () => setEditingTask(task) })),
-    ...(workspace.inbox ?? []).map((item) => ({ id: `inbox-${item.id}`, section: "Inbox", label: item.text, hint: "Untriaged capture", icon: <Inbox />, run: () => document.querySelector("#inbox")?.scrollIntoView() })),
-    ...(workspace.notes ?? []).map((note) => ({ id: `note-${note.id}`, section: "Journal", label: note.content, hint: `${workspace.projects.find((project) => project.id === note.projectId)?.name ?? "Project"} · ${note.type}`, icon: <BookOpenCheck />, run: () => document.querySelector("#journal")?.scrollIntoView() })),
-    ...(workspace.reviews ?? []).slice(0, 12).map((review) => ({ id: `review-${review.id}`, section: "Reviews", label: review.nextPriorities || review.wins || "Weekly review", hint: new Date(review.createdAt).toLocaleDateString(), icon: <BookOpenCheck />, run: () => setReviewOpen(true) })),
   ];
-  const filteredCommands = commandActions.filter((action) => `${action.label} ${action.hint} ${action.section}`.toLowerCase().includes(commandQuery.toLowerCase()));
-  const commandSections = [...new Set(filteredCommands.map((action) => action.section))];
+
+  const filteredCommands = useMemo(() => {
+    if (!commandQuery.trim()) return commandActions;
+    const query = commandQuery.toLowerCase();
+    return commandActions.filter((action) => action.label.toLowerCase().includes(query) || action.hint.toLowerCase().includes(query) || action.section.toLowerCase().includes(query));
+  }, [commandActions, commandQuery]);
+
+  const commandSections = useMemo(() => Array.from(new Set(filteredCommands.map((action) => action.section))), [filteredCommands]);
 
   const filtered = useMemo(() => workspace.projects.filter((project) => (kind === "All" || project.kind === kind) && `${project.name} ${project.description} ${project.stack.join(" ")}`.toLowerCase().includes(query.toLowerCase())), [kind, query, workspace.projects]);
   const openTasks = workspace.tasks.filter((task) => !task.done).length;
@@ -384,23 +716,71 @@ export function Dashboard() {
   const kinds: Array<"All" | ProjectKind> = ["All", "Software", "CNC", "Business", "Experiment"];
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {conflict && <DialogBoundary label="Resolve workspace conflict" onClose={() => undefined}><SyncConflictDialog title="Choose which workspace to keep" comparisons={[
+    <div className="relative min-h-screen bg-background font-sans text-foreground selection:bg-primary/20">
+      <DialogBoundary label="Sync conflict resolution" onClose={() => setConflict(null)}>{conflict && <SyncConflictDialog title="Choose which workspace to keep" comparisons={[
         { label: "Projects", local: conflict.local.projects.length, cloud: conflict.cloud?.projects.length ?? "—" },
         { label: "Tasks", local: conflict.local.tasks.length, cloud: conflict.cloud?.tasks.length ?? "—" },
         { label: "Inbox items", local: conflict.local.inbox?.length ?? 0, cloud: conflict.cloud?.inbox?.length ?? "—" },
         { label: "Activity entries", local: conflict.local.activity.length, cloud: conflict.cloud?.activity.length ?? "—" },
-      ]} cloudUpdatedAt={conflict.cloudVersion} loading={conflict.loading} resolving={conflict.resolving} error={conflict.error} onRetry={() => void loadConflict(conflict.local)} onUseCloud={useCloudConflict} onKeepLocal={() => void keepLocalConflict()} onExportLocal={() => downloadWorkspace(conflict.local, `work-ctrl-conflict-local-${today}.json`)} /></DialogBoundary>}
+      ]} cloudUpdatedAt={conflict.cloudVersion} loading={conflict.loading} resolving={conflict.resolving} error={conflict.error} onRetry={() => void loadConflict(conflict.local)} onUseCloud={useCloudConflict} onKeepLocal={() => void keepLocalConflict()} onExportLocal={() => downloadWorkspace(conflict.local, `work-ctrl-conflict-local-${today}.json`)} />}</DialogBoundary>
       {composer && <DialogBoundary label="Create a project, task, or idea" onClose={() => setComposer(null)}><Composer mode={composer} projects={workspace.projects} onClose={() => setComposer(null)} onProject={addProject} onTask={addTask} onIdea={addIdea} /></DialogBoundary>}
       {editingProject && <DialogBoundary label="Edit project" onClose={() => setEditingProject(null)}><ProjectEditor project={editingProject} onClose={() => setEditingProject(null)} onSave={updateProject} /></DialogBoundary>}
       {viewingProjectId && workspace.projects.find((project) => project.id === viewingProjectId) && <DialogBoundary label="Project workspace" onClose={() => setViewingProjectId(null)}><ProjectWorkspace project={workspace.projects.find((project) => project.id === viewingProjectId)!} tasks={workspace.tasks} intelligence={intelligence[viewingProjectId]?.data} onClose={() => setViewingProjectId(null)} onEdit={() => { setEditingProject(workspace.projects.find((project) => project.id === viewingProjectId)!); setViewingProjectId(null); }} onAddTask={(title) => addTask(title, viewingProjectId)} onToggleTask={toggleTask} onEditTask={setEditingTask} /></DialogBoundary>}
       {editingTask && <DialogBoundary label="Edit task" onClose={() => setEditingTask(null)}><TaskEditor task={editingTask} projects={workspace.projects} onClose={() => setEditingTask(null)} onSave={updateTask} /></DialogBoundary>}
       {confirmation && <DialogBoundary label="Confirm action" onClose={() => setConfirmation(null)}><ConfirmDialog confirmation={confirmation} onClose={() => setConfirmation(null)} /></DialogBoundary>}
-      {commandOpen && <DialogBoundary label="Command palette" onClose={() => setCommandOpen(false)}><div className="fixed inset-0 z-[55] flex justify-center bg-background/75 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && setCommandOpen(false)}><Card className="h-fit w-full max-w-xl overflow-hidden shadow-2xl"><div className="flex items-center gap-3 border-b border-border px-4"><Search className="size-4 text-muted-foreground" /><input autoFocus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} placeholder="Type a command or search projects…" aria-label="Search commands and projects" className="h-14 min-w-0 flex-1 bg-transparent text-sm outline-none" /><kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">ESC</kbd></div><div className="max-h-[55vh] overflow-y-auto p-2">{filteredCommands.length ? commandSections.map((section) => <div key={section} className="mb-2"><div className="px-2 py-2 font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">{section}</div>{filteredCommands.filter((action) => action.section === section).map((action) => <button key={action.id} onClick={() => { action.run(); setCommandOpen(false); setCommandQuery(""); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-accent"><span className="text-muted-foreground [&_svg]:size-4">{action.icon}</span><span className="min-w-0 flex-1 truncate text-sm">{action.label}</span><span className="text-[10px] text-muted-foreground">{action.hint}</span><CornerDownLeft className="size-3 text-muted-foreground/50" /></button>)}</div>) : <div className="grid min-h-32 place-items-center text-sm text-muted-foreground">No matching commands</div>}</div><div className="flex items-center gap-4 border-t border-border bg-secondary/30 px-4 py-2 font-mono text-[9px] text-muted-foreground"><span className="flex items-center gap-1"><Keyboard className="size-3" />Ctrl/⌘ K</span><span>Alt N · task</span><span>Alt I · idea</span></div></Card></div></DialogBoundary>}
+      {commandOpen && <DialogBoundary label="Command palette" onClose={() => setCommandOpen(false)}><div className="fixed inset-0 z-[55] flex justify-center bg-background/75 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && setCommandOpen(false)}><Card className="h-fit w-full max-w-xl overflow-hidden shadow-2xl"><div className="flex items-center gap-3 border-b border-border px-4"><Search className="size-4 text-muted-foreground" /><input autoFocus value={commandQuery} onChange={(event) => setCommandQuery(event.target.value)} placeholder="Type a command or search projects…" aria-label="Search commands and projects" className="h-14 min-w-0 flex-1 bg-transparent text-sm outline-none" /><kbd className="rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">ESC</kbd></div><div className="max-h-[55vh] overflow-y-auto p-2">{filteredCommands.length ? commandSections.map((section) => <div key={section} className="mb-2"><div className="px-2 py-2 font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">{section}</div>{filteredCommands.filter((action) => action.section === section).map((action) => <button key={action.id} onClick={() => { action.run(); setCommandOpen(false); setCommandQuery(""); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-accent"><span className="text-muted-foreground [&_svg]:size-4">{action.icon}</span><span className="min-w-0 flex-1 truncate text-sm">{action.label}</span><span className="text-[10px] text-muted-foreground">{action.hint}</span><CornerDownLeft className="size-3 text-muted-foreground/50" /></button>)}</div>) : <div className="grid min-h-32 place-items-center text-sm text-muted-foreground">No matching commands</div>}</div><div className="flex items-center gap-4 border-t border-border bg-secondary/30 px-4 py-2 font-mono text-[9px] text-muted-foreground"><span className="flex items-center gap-1"><Keyboard className="size-3" />Ctrl/⌘ K</span><span>Alt N · task</span><span>Alt I · idea</span><span>Ctrl Z · undo</span></div></Card></div></DialogBoundary>}
       {reviewOpen && <DialogBoundary label="Weekly review" onClose={() => setReviewOpen(false)}><WeeklyReviewDialog onClose={() => setReviewOpen(false)} onSave={saveWeeklyReview} /></DialogBoundary>}
       {importOpen && <DialogBoundary label="Import projects" onClose={() => setImportOpen(false)}><ProjectImportDialog existing={workspace.projects} onClose={() => setImportOpen(false)} onImport={importProjects} /></DialogBoundary>}
       {settingsOpen && <DialogBoundary label="Workspace settings" onClose={() => setSettingsOpen(false)}><SettingsDialog settings={workspace.settings ?? defaultWorkspaceSettings} onClose={() => setSettingsOpen(false)} onSave={saveSettings} /></DialogBoundary>}
-      {undo && <div className="fixed bottom-5 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 text-xs shadow-2xl"><span>{undo.label}</span><Button size="sm" variant="ghost" className="text-primary" onClick={() => { setWorkspace(undo.workspace); setUndo(null); }}>Undo</Button><button onClick={() => setUndo(null)} aria-label="Dismiss"><X className="size-3.5 text-muted-foreground" /></button></div>}
+      {undoToast && (
+        <div
+          role="status"
+          className="fixed bottom-5 left-1/2 z-[70] flex -translate-x-1/2 items-center gap-3 rounded-xl border border-border/90 bg-card/95 px-4 py-2.5 text-xs shadow-2xl backdrop-blur-xl"
+        >
+          <div className="flex items-center gap-2">
+            <RotateCcw className="size-3.5 text-primary" />
+            <span className="max-w-[220px] truncate font-medium text-foreground sm:max-w-xs">{undoToast.label}</span>
+          </div>
+
+          <div className="flex items-center gap-1 border-l border-border pl-2.5">
+            {undoToast.canUndo && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1.5 px-2 text-xs font-semibold text-primary hover:bg-primary/10"
+                onClick={performUndo}
+              >
+                <span>Undo</span>
+                <kbd className="hidden rounded border border-border/80 bg-background/80 px-1 py-0.2 font-mono text-[9px] text-muted-foreground sm:inline-block">
+                  Ctrl+Z
+                </kbd>
+              </Button>
+            )}
+
+            {undoToast.canRedo && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={performRedo}
+              >
+                <span>Redo</span>
+                <kbd className="hidden rounded border border-border/80 bg-background/80 px-1 py-0.2 font-mono text-[9px] text-muted-foreground sm:inline-block">
+                  Ctrl+Y
+                </kbd>
+              </Button>
+            )}
+
+            <button
+              onClick={() => setUndoToast(null)}
+              aria-label="Dismiss notification"
+              className="ml-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_75%_-10%,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_32%)]" />
       <div className="relative mx-auto flex min-h-screen w-full min-w-0 max-w-[1600px]">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/70 bg-card/30 p-4 backdrop-blur lg:flex">
