@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Fingerprint, KeyRound, LoaderCircle, ShieldCheck } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 type PrivateDestination = "/dashboard" | "/dashboard/leads" | "/dashboard/consultations" | "/dashboard/marketing" | "/dashboard/marketing/one-sheet" | "/account";
 
-export function LoginPanel({ nextPath = "/dashboard" }: { nextPath?: PrivateDestination }) {
+export function LoginPanel({ nextPath = "/dashboard", autoPrompt = true }: { nextPath?: PrivateDestination; autoPrompt?: boolean }) {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "setup">("login");
   const [email, setEmail] = useState("");
@@ -19,6 +19,7 @@ export function LoginPanel({ nextPath = "/dashboard" }: { nextPath?: PrivateDest
   const [setupAvailable, setSetupAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const autoPromptAttempted = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,12 +38,25 @@ export function LoginPanel({ nextPath = "/dashboard" }: { nextPath?: PrivateDest
 
   async function signInWithPasskey() {
     setBusy(true); setMessage("");
-    const { error } = await authClient.signIn.passkey({
-      fetchOptions: { onSuccess: () => router.push(nextPath) },
-    });
-    if (error) setMessage(error.message ?? "The passkey could not be verified.");
-    setBusy(false);
+    try {
+      const { error } = await authClient.signIn.passkey({
+        fetchOptions: { onSuccess: () => router.push(nextPath) },
+      });
+      if (error) setMessage(error.message ?? "The passkey could not be verified.");
+    } catch {
+      setMessage("Passkey authentication was cancelled or unavailable.");
+    } finally {
+      setBusy(false);
+    }
   }
+
+  useEffect(() => {
+    if (!autoPrompt || autoPromptAttempted.current || mode !== "login") return;
+    autoPromptAttempted.current = true;
+    if (typeof window !== "undefined" && window.PublicKeyCredential) {
+      void signInWithPasskey();
+    }
+  }, [autoPrompt, mode]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setMessage("");

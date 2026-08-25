@@ -22,11 +22,11 @@ Application schema changes are ordered SQL files in `migrations/`. `bun run db:m
 
 Use `bun run db:migrate:check` to validate migration filenames, statement boundaries, and checksums without connecting to or changing a database. Better Auth continues to use its separate `bun run auth:migrate` command.
 
-Copy `.env.example` to `.env.local` for the complete local configuration contract. Search Console, first-party conversion measurement, optional public business details, and post-deployment checks are documented in [`docs/SEO-AND-MEASUREMENT.md`](docs/SEO-AND-MEASUREMENT.md). The private consultation templates, workflow, and database setup are documented in [`docs/CONSULTATION-PLAYBOOKS.md`](docs/CONSULTATION-PLAYBOOKS.md). The 90-day outbound, content, field-visit, partnership, and collateral system is documented in [`docs/MARKETING-OPERATIONS.md`](docs/MARKETING-OPERATIONS.md).
+Copy `.env.example` to `.env.local` for the complete local configuration contract. Search Console, first-party conversion measurement, optional public business details, and post-deployment checks are documented in [`docs/SEO-AND-MEASUREMENT.md`](docs/SEO-AND-MEASUREMENT.md). The private consultation templates, workflow, and database setup are documented in [`docs/CONSULTATION-PLAYBOOKS.md`](docs/CONSULTATION-PLAYBOOKS.md). The 90-day outbound, content, field-visit, partnership, and collateral system is documented in [`docs/MARKETING-OPERATIONS.md`](docs/MARKETING-OPERATIONS.md). Direct ThinkPad and OnePlus operator launchers and instant biometric passkey sign-in are documented in [`docs/OPERATOR_ACCESS.md`](docs/OPERATOR_ACCESS.md).
 
 ## Authentication
 
-WORK//CTRL uses Better Auth with WebAuthn passkeys. The first visit uses the restricted owner email and a recovery password to create the owner account. Visit `/account` immediately afterward to enroll Windows Hello, then add a phone or password-manager passkey as backup.
+WORK//CTRL uses Better Auth with WebAuthn passkeys. The first visit uses the restricted owner email and a recovery password to create the owner account. Visit `/account` immediately afterward to enroll Windows Hello, then add a phone or password-manager passkey as backup. Clicking **Command Center** or opening `/dashboard` immediately triggers your device fingerprint biometric without intermediate clicks.
 
 Required environment variables:
 

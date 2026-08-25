@@ -18,5 +18,28 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/icon", sizes: "512x512", type: "image/png", purpose: "any" },
       { src: "/icon", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
+    shortcuts: [
+      {
+        name: "Command Center",
+        short_name: "Command Center",
+        description: "Launch the owner command center",
+        url: "/dashboard",
+        icons: [{ src: "/icon", sizes: "512x512" }],
+      },
+      {
+        name: "Client Leads",
+        short_name: "Leads",
+        description: "Open client lead pipeline",
+        url: "/dashboard/leads",
+        icons: [{ src: "/icon", sizes: "512x512" }],
+      },
+      {
+        name: "Consultations",
+        short_name: "Consultations",
+        description: "Open consultation discovery playbooks",
+        url: "/dashboard/consultations",
+        icons: [{ src: "/icon", sizes: "512x512" }],
+      },
+    ],
   };
 }

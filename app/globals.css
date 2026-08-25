@@ -67,11 +67,6 @@ button, a { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 ::selection { background: color-mix(in oklab, var(--primary) 35%, transparent); }
 
-@media (max-width: 639px) {
-  #tasks .group\/task { flex-wrap: wrap; }
-  #tasks .group\/task > .min-w-0 { flex-basis: calc(100% - 1.5rem); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }

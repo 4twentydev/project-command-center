@@ -58,3 +58,12 @@ Run `vercel --prod` only when the preview deployment looks correct.
 Start Docker Desktop before running container commands. Confirm the engine with `docker version`. Launch Ubuntu once from Windows Terminal to complete its username and password setup; check distributions with `wsl --list --verbose`.
 
 Keep active source repositories in the Windows development folder when primarily using Git Bash and VSCodium. Avoid editing the same checkout simultaneously through both Windows and Linux tools.
+
+## Direct Command Center access & Windows Hello passkeys
+
+To launch the Command Center directly without navigating through the public site:
+
+1. **Install as Windows App**: Navigate to `http://localhost:3000/dashboard` or `https://www.4twenty.dev/dashboard` in Edge/Chrome -> click **Install App** -> **Pin to taskbar**.
+2. **Instant Biometrics**: Clicking the taskbar icon or the top-nav **Command Center** button immediately triggers the native Windows Hello fingerprint prompt with zero intermediate clicks.
+3. For full ThinkPad and OnePlus quick-launcher instructions, see [`docs/OPERATOR_ACCESS.md`](docs/OPERATOR_ACCESS.md).
+

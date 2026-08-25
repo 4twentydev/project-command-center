@@ -15,7 +15,7 @@ describe("technical search foundations", () => {
     expect(urls).toContain(`${brand.siteURL}/privacy`);
     for (const service of publicServices) expect(urls).toContain(`${brand.siteURL}/services/${service.slug}`);
     for (const study of caseStudies) expect(urls).toContain(`${brand.siteURL}/work/${study.slug}`);
-    for (const path of ["/login", "/account", "/dashboard", "/api/"]) expect(urls.some((url) => url.includes(path))).toBe(false);
+    for (const path of ["/login", "/account", "/dashboard", "/api/", "/cmd", "/ctrl"]) expect(urls.some((url) => url.includes(path))).toBe(false);
   });
 
   test("allows the public site and blocks private or machine routes", () => {
@@ -24,10 +24,14 @@ describe("technical search foundations", () => {
     expect(policy.host).toBe(brand.siteURL);
     expect(JSON.stringify(policy.rules)).toContain("/dashboard");
     expect(JSON.stringify(policy.rules)).toContain("/api/");
+    expect(JSON.stringify(policy.rules)).toContain("/cmd");
+    expect(JSON.stringify(policy.rules)).toContain("/ctrl");
   });
 
   test("keeps install and structured data attached to the canonical brand", () => {
-    expect(manifest().id).toBe("/");
+    const appManifest = manifest();
+    expect(appManifest.id).toBe("/");
+    expect(appManifest.shortcuts?.some((s) => s.url === "/dashboard")).toBe(true);
     expect(organizationStructuredData["@type"]).toBe("Organization");
     expect(founderStructuredData["@graph"].some((item) => item["@type"] === "Person")).toBe(true);
     for (const service of publicServices) {
