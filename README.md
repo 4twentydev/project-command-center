@@ -1,14 +1,14 @@
 # 4TWENTY.DEV + WORK//CTRL
 
-[![CI](https://github.com/4twentydev/4twentydev/actions/workflows/ci.yml/badge.svg)](https://github.com/4twentydev/4twentydev/actions/workflows/ci.yml)
+[![CI](https://github.com/rivetworks/website/actions/workflows/ci.yml/badge.svg)](https://github.com/rivetworks/website/actions/workflows/ci.yml)
 
 A dark-first public studio site and private home base for software, CNC, business, and experimental projects. Built with Next.js App Router, TypeScript, Tailwind CSS v4, shadcn/ui conventions, Bun, Neon, Better Auth passkeys, and Vercel.
 
 ## Start locally
 
 ```bash
-git clone git@github.com:4twentydev/4twentydev.git
-cd 4twentydev
+git clone git@github.com:rivetworks/website.git
+cd website
 bun install
 bun run db:migrate
 bun dev
@@ -139,7 +139,7 @@ vercel
 vercel --prod
 ```
 
-The public pages render without external scheduling or payment services, but database-backed forms and private WORK//CTRL features require the environment variables documented above. The expected production domain is `https://www.4twenty.dev`. Connect `4twentydev/4twentydev` in Vercel for automatic preview and production deployments.
+The public pages render without external scheduling or payment services, but database-backed forms and private WORK//CTRL features require the environment variables documented above. The current production domain is `https://www.4twenty.dev`. The canonical repository is `rivetworks/website`; hosting migration and the `rivetworks.software` domain cutover are handled separately.
 
 ## Structure
 

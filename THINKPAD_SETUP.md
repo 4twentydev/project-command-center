@@ -46,7 +46,7 @@ Select Git Bash as the default Windows Terminal profile if desired. In VSCodium,
 git init
 git add .
 git commit -m "Initial project command center"
-gh repo create 4twentydev/4twentydev --private --source=. --remote=origin --push
+gh repo create rivetworks/website --private --source=. --remote=origin --push
 vercel link --project 4twentydev
 vercel
 ```

@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "project-command-center",
+      "name": "rivetworks-website",
       "dependencies": {
         "@better-auth/passkey": "^1.6.26",
         "@neondatabase/serverless": "^1.0.2",
