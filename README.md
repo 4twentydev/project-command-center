@@ -1,14 +1,14 @@
 # 4TWENTY.DEV + WORK//CTRL
 
-[![CI](https://github.com/4twentydev/project-command-center/actions/workflows/ci.yml/badge.svg)](https://github.com/4twentydev/project-command-center/actions/workflows/ci.yml)
+[![CI](https://github.com/4twentydev/4twentydev/actions/workflows/ci.yml/badge.svg)](https://github.com/4twentydev/4twentydev/actions/workflows/ci.yml)
 
 A dark-first public studio site and private home base for software, CNC, business, and experimental projects. Built with Next.js App Router, TypeScript, Tailwind CSS v4, shadcn/ui conventions, Bun, Neon, Better Auth passkeys, and Vercel.
 
 ## Start locally
 
 ```bash
-git clone git@github.com:4twentydev/project-command-center.git
-cd project-command-center
+git clone git@github.com:4twentydev/4twentydev.git
+cd 4twentydev
 bun install
 bun run db:migrate
 bun dev
@@ -134,12 +134,12 @@ For private repositories and detailed Vercel deployment state, configure server-
 ## Deploy
 
 ```bash
-vercel link --project project-command-center
+vercel link --project 4twentydev
 vercel
 vercel --prod
 ```
 
-The public pages render without external scheduling or payment services, but database-backed forms and private WORK//CTRL features require the environment variables documented above. The expected production domain is `https://www.4twenty.dev`. Connect `4twentydev/project-command-center` in Vercel for automatic preview and production deployments.
+The public pages render without external scheduling or payment services, but database-backed forms and private WORK//CTRL features require the environment variables documented above. The expected production domain is `https://www.4twenty.dev`. Connect `4twentydev/4twentydev` in Vercel for automatic preview and production deployments.
 
 ## Structure
 
@@ -152,5 +152,5 @@ components.json      shadcn/ui configuration
 ```
 
 The project intentionally has no `src` directory.
-# project-command-center
-# project-command-center
+# 4twentydev
+# 4twentydev
