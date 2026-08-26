@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Fingerprint, KeyRound, LoaderCircle, ShieldCheck } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
@@ -36,7 +36,7 @@ export function LoginPanel({ nextPath = "/dashboard", autoPrompt = true }: { nex
     return () => { cancelled = true; };
   }, []);
 
-  async function signInWithPasskey() {
+  const signInWithPasskey = useCallback(async () => {
     setBusy(true); setMessage("");
     try {
       const { error } = await authClient.signIn.passkey({
@@ -48,15 +48,18 @@ export function LoginPanel({ nextPath = "/dashboard", autoPrompt = true }: { nex
     } finally {
       setBusy(false);
     }
-  }
+  }, [nextPath, router]);
 
   useEffect(() => {
     if (!autoPrompt || autoPromptAttempted.current || mode !== "login") return;
     autoPromptAttempted.current = true;
     if (typeof window !== "undefined" && window.PublicKeyCredential) {
-      void signInWithPasskey();
+      const timer = setTimeout(() => {
+        void signInWithPasskey();
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [autoPrompt, mode]);
+  }, [autoPrompt, mode, signInWithPasskey]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setMessage("");

@@ -22,7 +22,6 @@ import {
   Rocket,
   Search,
   Sparkles,
-  TerminalSquare,
 } from "lucide-react";
 import type { Project } from "@/lib/projects";
 import type { ProjectIntelligenceEntry } from "@/lib/project-intelligence-client";

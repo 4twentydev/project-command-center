@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ShieldCheck, Wrench, Terminal, Cpu, Layers, GitBranch, Search, Zap } from "lucide-react";
+import { ArrowRight, CheckCircle2, ShieldCheck, Layers, Search, Zap } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { CommandCenterButton } from "@/components/command-center-button";
 import { SiteFooter } from "@/components/site-footer";

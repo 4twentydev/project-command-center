@@ -7,4 +7,5 @@ out
 *.log
 playwright-report
 test-results
+*.tsbuildinfo
 .DS_Store
