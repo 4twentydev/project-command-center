@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${siteURL}/platform`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${siteURL}/demos`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${siteURL}/work`, changeFrequency: "monthly", priority: 0.9 },
+    { url: `${siteURL}/how-we-build`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${siteURL}/labs`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${siteURL}/workflow-audit`, changeFrequency: "monthly", priority: 0.9 },
     { url: `${siteURL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
