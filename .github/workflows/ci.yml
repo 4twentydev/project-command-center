@@ -56,6 +56,14 @@ jobs:
       - name: Validate migration plan
         run: bun run db:migrate:check
 
+      - name: Install Better Auth database schema
+        run: bun run auth:migrate
+        env:
+          NODE_ENV: test
+          BETTER_AUTH_SECRET: ci_synthetic_test_secret_32_characters_min_entropy_key
+          BETTER_AUTH_URL: http://127.0.0.1:3000
+          OWNER_EMAIL: owner@example.com
+
       - name: Apply migrations to disposable PostgreSQL
         run: |
           bun run db:migrate
