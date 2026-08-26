@@ -1,0 +1,8 @@
+[functions]
+  directory = "netlify/functions"
+
+[functions.reminders]
+  schedule = "0 14 * * *"
+
+[functions.retention]
+  schedule = "30 14 * * *"

@@ -1,7 +1,6 @@
-import { neon } from "@neondatabase/serverless";
 import type { NextRequest } from "next/server";
-import { archivedInquiryPurgeBefore, workspaceSnapshotRetentionCount } from "@/lib/data-retention";
-import { createOperationalContext, jsonWithRequestId, withOperationTimeout } from "@/lib/operational-observability";
+import { createOperationalContext, jsonWithRequestId } from "@/lib/operational-observability";
+import { runRetentionJob } from "@/lib/scheduled-jobs";
 
 export const runtime = "nodejs";
 
@@ -17,23 +16,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const sql = neon(process.env.DATABASE_URL);
-    const purgeBefore = archivedInquiryPurgeBefore().toISOString();
-    const [inquiries, snapshots] = await withOperationTimeout(Promise.all([
-      sql`DELETE FROM contact_inquiries WHERE status = 'archived' AND archived_at < ${purgeBefore}::timestamptz RETURNING id`,
-      sql`
-        DELETE FROM workspace_snapshots
-        WHERE id IN (
-          SELECT id FROM workspace_snapshots
-          WHERE workspace_id = 'primary'
-          ORDER BY created_at DESC, id DESC
-          OFFSET ${workspaceSnapshotRetentionCount}
-        )
-        RETURNING id
-      `,
-    ]));
-    context.completed(200, { status: "ok", itemCount: inquiries.length + snapshots.length });
-    return jsonWithRequestId(context, { ok: true, inquiriesPurged: inquiries.length, snapshotsPurged: snapshots.length });
+    const result = await runRetentionJob();
+    context.completed(200, { status: "ok", itemCount: result.inquiriesPurged + result.snapshotsPurged });
+    return jsonWithRequestId(context, result);
   } catch (error) {
     context.failed(503, error, { dependency: "database", operation: "data_retention" });
     return jsonWithRequestId(context, { error: "Data retention is unavailable" }, { status: 503 });

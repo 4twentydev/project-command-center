@@ -114,6 +114,7 @@ WORKFLOW_AUDIT_BOOKING_URL=https://cal.com/yorkstead/audit
 
 - **Hosting Platform**: Netlify project `yorkstead` (`https://yorkstead.com`).
 - **Edge Runtime**: Netlify Next.js Runtime with atomic immutable deployments.
+- **Scheduled Operations**: Netlify Scheduled Functions run daily reminders at 14:00 UTC and retention cleanup at 14:30 UTC. The authenticated Next.js cron routes remain available for controlled diagnostics, but are not the production scheduler.
 - **Database Engine**: Neon Serverless PostgreSQL with connection pooling and point-in-time recovery (PITR).
 - **Rollback Procedure**:
   1. Atomic instant rollback to previous successful deployment ID via Netlify dashboard or CLI.
