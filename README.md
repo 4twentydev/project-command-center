@@ -1,156 +1,135 @@
-# 4TWENTY.DEV + WORK//CTRL
+# Yorkstead Systems // Public Website & Studio Platform
 
-[![CI](https://github.com/rivetworks/website/actions/workflows/ci.yml/badge.svg)](https://github.com/rivetworks/website/actions/workflows/ci.yml)
+[![CI](https://github.com/rivetworks/yorkstead-website/actions/workflows/ci.yml/badge.svg)](https://github.com/rivetworks/yorkstead-website/actions/workflows/ci.yml)
 
-A dark-first public studio site and private home base for software, CNC, business, and experimental projects. Built with Next.js App Router, TypeScript, Tailwind CSS v4, shadcn/ui conventions, Bun, Neon, Better Auth passkeys, and Vercel.
+The official public website, portfolio showcase, and operator command surface for **Yorkstead Systems** (`https://yorkstead.com`). Built with Next.js App Router, TypeScript, Tailwind CSS v4, shadcn/ui conventions, Bun, Neon Serverless PostgreSQL, Better Auth passkeys, and hosted on **Netlify**.
 
-## Start locally
+The companion commercial manufacturing and field operations application is **Yorkstead Operations** (`https://ops.yorkstead.com`).
+
+---
+
+## 1. Quick Start (Local Setup)
+
+### Prerequisites
+- [Bun](https://bun.sh) (v1.3+ required, v1.3.14 recommended)
+- PostgreSQL database (Neon Serverless Postgres recommended)
 
 ```bash
-git clone git@github.com:rivetworks/website.git
-cd website
+git clone git@github.com:rivetworks/yorkstead-website.git
+cd yorkstead-website
 bun install
 bun run db:migrate
 bun dev
 ```
 
-Open `http://localhost:3000`. The public site lives at `/`, owner login at `/login`, passkey management at `/account`, and the private command center at `/dashboard`. Run `bun run db:migrate` after pulling schema changes, and use `bun run build` to verify the production build.
+Open `http://localhost:3000`.
 
-## Application database migrations
+- **Public Website**: `/`
+- **How We Build**: `/how-we-build`
+- **Interactive Demos**: `/demos`
+- **Solutions Catalog**: `/solutions`
+- **Work & Case Studies**: `/work`
+- **Platform Architecture**: `/platform`
+- **Workflow Audit Intake**: `/workflow-audit`
+- **Owner Login**: `/login`
+- **Passkey Management**: `/account`
+- **Operator Command Center**: `/dashboard`
 
-Application schema changes are ordered SQL files in `migrations/`. `bun run db:migrate` applies each pending file in its own PostgreSQL transaction and records its SHA-256 checksum in `application_migrations`. Applied migration files are immutable: add a new numbered migration for later schema changes instead of editing one that an environment may already have recorded. The runner stops before applying anything if a recorded checksum differs.
+---
 
-Use `bun run db:migrate:check` to validate migration filenames, statement boundaries, and checksums without connecting to or changing a database. Better Auth continues to use its separate `bun run auth:migrate` command.
+## 2. Established Bun Commands
 
-Copy `.env.example` to `.env.local` for the complete local configuration contract. Search Console, first-party conversion measurement, optional public business details, and post-deployment checks are documented in [`docs/SEO-AND-MEASUREMENT.md`](docs/SEO-AND-MEASUREMENT.md). The private consultation templates, workflow, and database setup are documented in [`docs/CONSULTATION-PLAYBOOKS.md`](docs/CONSULTATION-PLAYBOOKS.md). The 90-day outbound, content, field-visit, partnership, and collateral system is documented in [`docs/MARKETING-OPERATIONS.md`](docs/MARKETING-OPERATIONS.md). Direct ThinkPad and OnePlus operator launchers and instant biometric passkey sign-in are documented in [`docs/OPERATOR_ACCESS.md`](docs/OPERATOR_ACCESS.md).
+| Command | Purpose |
+| :--- | :--- |
+| `bun dev` | Starts local Next.js development server on `http://localhost:3000` |
+| `bun run typecheck` | Runs strict TypeScript verification (`tsc --noEmit`) |
+| `bun run lint` | Runs ESLint and React Compiler hook audits (`eslint .`) |
+| `bun test` | Runs the full automated test suite |
+| `bun run db:migrate` | Applies pending SQL migrations in transactional batches |
+| `bun run db:migrate:check` | Validates migration checksums, filenames, and schema without a database |
+| `bun run auth:migrate` | Runs Better Auth authentication schema migrations |
+| `bun run build` | Compiles optimized Next.js production build |
 
-## Authentication
+---
 
-WORK//CTRL uses Better Auth with WebAuthn passkeys. The first visit uses the restricted owner email and a recovery password to create the owner account. Visit `/account` immediately afterward to enroll Windows Hello, then add a phone or password-manager passkey as backup. Clicking **Command Center** or opening `/dashboard` immediately triggers your device fingerprint biometric without intermediate clicks.
+## 3. Environment Configuration
 
-Required environment variables:
+Copy `.env.example` to `.env.local` for local development:
 
 ```env
-DATABASE_URL=postgresql://...
-BETTER_AUTH_SECRET=<at least 32 random characters>
+# Database (Neon Serverless PostgreSQL)
+DATABASE_URL=postgresql://user:password@ep-sample-123456.us-east-2.aws.neon.tech/neondb?sslmode=require
+
+# Authentication & Passkeys (Better Auth)
+BETTER_AUTH_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 BETTER_AUTH_URL=http://localhost:3000
-OWNER_EMAIL=you@example.com
+OWNER_EMAIL=owner@yorkstead.com
 PASSKEY_RP_ID=localhost
-OWNER_BOOTSTRAP_TOKEN=<one-time random bootstrap token>
+OWNER_BOOTSTRAP_TOKEN=sample_one_time_bootstrap_token_12345
+
+# Email & Notifications (Optional)
+RESEND_API_KEY=re_sample_123456789
+CONTACT_FROM_EMAIL=Yorkstead Systems <hello@yorkstead.com>
+CONTACT_NOTIFICATION_EMAIL=owner@yorkstead.com
+
+# Analytics & Public Scheduling (Optional)
+ANALYTICS_HASH_SALT=sample_random_salt_hash_key_12345
+WORKFLOW_AUDIT_BOOKING_URL=https://cal.com/yorkstead/audit
 ```
 
-Generate `BETTER_AUTH_SECRET` and the initial `OWNER_BOOTSTRAP_TOKEN` independently with `openssl rand -hex 32`. For production, set `BETTER_AUTH_URL=https://www.4twenty.dev` and `PASSKEY_RP_ID=4twenty.dev`. The setup form appears only while a bootstrap token is configured and the Better Auth user table is empty; creating the owner requires the configured email and token, and all later bootstrap attempts are refused. Remove `OWNER_BOOTSTRAP_TOKEN` after setup.
+### Production Security Policy
+- `BETTER_AUTH_URL` must use HTTPS (e.g. `https://yorkstead.com`).
+- `PASSKEY_RP_ID` must match the canonical domain `yorkstead.com` or `ops.yorkstead.com`.
+- Passkey WebAuthn relying party IDs are domain-bound; production passkeys must be registered against `https://yorkstead.com`.
+- `OWNER_BOOTSTRAP_TOKEN` should be removed from environment variables after initial setup.
 
-Production authentication validates its complete runtime configuration when first used: the database must be PostgreSQL, the authentication origin must be an HTTPS origin without credentials or a custom port, `OWNER_EMAIL` must be operationally valid, secrets must meet the high-entropy policy, and the passkey relying-party ID must match the authentication hostname or a parent domain. Runtime validation remains lazy so `next build` can complete without deployment-only secrets. Vercel canonicalizes the apex domain to `www`; the parent-domain relying-party ID keeps credentials scoped to 4TWENTY.DEV. Passkeys are domain-bound, so enroll permanent production passkeys only after the custom domain is serving HTTPS. All workspace, project-intelligence, import, and push-management APIs require the authenticated owner session; cron endpoints retain separate bearer-secret protection.
+---
 
-Run `bun run auth:migrate` when Better Auth schema changes are required. The migration CLI is downloaded only for that command and is intentionally excluded from installed application dependencies because its current release bundles an older Better Auth runtime; the deployed application uses the patched runtime declared in `dependencies`.
+## 4. Route Architecture & Boundary Classification
 
-## Edit projects
+### Public Routes (Unauthenticated)
+- `/` — Corporate homepage, core value proposition, interactive navigation.
+- `/about` — Verified company profile and founder background.
+- `/demos` — Interactive demo gateway with live health checks and deep links to `https://ops.yorkstead.com/demo`.
+- `/how-we-build` — 4-stage engineering method and delivery contract.
+- `/labs` — Applied research prototypes, CAD parsers, and machine integrations.
+- `/platform` — Core architecture, tenant isolation, and single truth schema overview.
+- `/privacy` — Strict privacy notice and first-party cookieless analytics disclosure.
+- `/services/[slug]` — Specialized industrial software service offerings.
+- `/solutions` — Composable capability catalog for manufacturing, field services, and fabrication.
+- `/work` & `/work/[slug]` — Verified case studies and engineering project profiles.
+- `/workflow-audit` — 90-minute technical audit briefing intake.
 
-Projects, tasks, captured ideas, and activity are persisted to Neon Postgres through `/api/workspace`, with browser local storage under `work-ctrl-workspace-v1` retained as an offline cache. The first cloud load automatically migrates existing local data when the database is empty.
+### Owner-Only Operator Routes (Protected by Better Auth Session)
+- `/dashboard` — Operator command center, daily focus briefing, task queue, and project portfolio.
+- `/dashboard/leads` — Inbound client inquiries and Workflow Audit qualification pipeline.
+- `/dashboard/marketing` & `/dashboard/marketing/one-sheet` — 90-day outbound marketing operations.
+- `/dashboard/consultations` — Structured client discovery playbooks.
+- `/account` — Passkey biometric management (Windows Hello / Apple Touch ID / Security Key).
+- `/cmd` & `/ctrl` — Fast operator launcher shortcuts.
 
-Projects can be edited directly from their card, including status, workspace, stack, momentum, next action, repository, and deployment links.
+---
 
-Tasks support priorities, due dates, notes, project grouping, editing, deletion, completion, overdue signals, and focused Today, Next, and All views.
+## 5. Deployment & Production Truth
 
-Data safety controls include destructive-action confirmation, eight-second undo, portable JSON export/import, safe reset, and timestamped Neon cloud snapshots.
+- **Hosting Platform**: Netlify project `yorkstead` (`https://yorkstead.com`).
+- **Edge Runtime**: Netlify Next.js Runtime with atomic immutable deployments.
+- **Database Engine**: Neon Serverless PostgreSQL with connection pooling and point-in-time recovery (PITR).
+- **Rollback Procedure**:
+  1. Atomic instant rollback to previous successful deployment ID via Netlify dashboard or CLI.
+  2. Database schema validation via `bun run db:migrate:check`.
 
-Press `Ctrl/⌘ + K` for the global command palette. `Alt + N` captures a task and `Alt + I` captures an idea from anywhere outside a form field.
+---
 
-The focus briefing derives the three most time-sensitive actions, overdue and high-priority pressure, stalled projects, and overall project momentum from live workspace data.
+## 6. Testing & Quality Gate Contract
 
-WORK//CTRL includes an App Router web manifest, generated application icon, production service worker, offline shell, security headers, mobile safe-area handling, and a touch-first bottom navigation dock. Install it from a supported browser while using the HTTPS Vercel deployment.
+- **Unit & Component Tests**: 166+ automated tests verifying SEO metadata, request rate limiting, structured data, validation invariants, and UI isolation.
+- **Database Integration Tests**:
+  - `lib/db-migrations.test.ts` contains 2 integration tests that verify PostgreSQL migration transactions and constraint enforcement.
+  - These tests run automatically when a live `DATABASE_URL` is configured in CI/staging and safely skip in local mock environments without a database container.
 
-Weekly reviews capture wins, blockers, lessons, and next priorities; retain up to 52 reviews in the cloud workspace; log completion activity; and automatically create a Neon snapshot.
+---
 
-Daily browser push reminders are stored per device in Neon and sent by a secured Vercel Cron job at `14:00 UTC` (approximately 7–8 AM Denver time depending on daylight saving). Configure `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, and `CRON_SECRET` in Vercel.
+## 7. Historical Migration Record
 
-The planning calendar provides month navigation, deadline chips, project-aware upcoming work, recent completion history, and direct task editing/completion. Completed tasks record a completion timestamp for accurate timeline ordering.
-
-Reliability tooling includes shared runtime workspace validation, legacy-data normalization, route-level error and loading states, a `/api/health` dependency check, and Bun tests for focus selection, task views, and workspace compatibility.
-
-Captured ideas enter a dedicated inbox for later triage. Inbox items can be promoted to medium-priority tasks, converted into planning projects, or archived, with every decision added to activity history.
-
-Each project card opens a dedicated workspace with its operational brief, momentum, task completion, linked task management, next action, stack, repository metadata, and deployment health.
-
-Connected project discovery imports selected GitHub repositories, matches same-name Vercel deployments, skips already tracked repositories, and creates editable WORK//CTRL project cards. Open it from the command palette.
-
-Cloud-synced workspace settings store display identity, timezone-aware reminders, GitHub and Vercel account identity, stalled-project sensitivity, and the default priority for newly created tasks.
-
-Operating analytics calculate seven-day throughput, thirty-day completion rate, average task cycle time, daily completion trends, open-work priority mix, and project status distribution without sending analytics data to a third party.
-
-GitHub project intelligence includes open pull requests with draft/ready state, open issues, direct links, and an aggregated development queue across tracked repositories.
-
-The project journal preserves cloud-synced updates, decisions, blockers, and notes by project, including timestamps, filtering, deletion confirmation, undo, and activity history.
-
-The command palette provides universal search across projects, tasks, inbox captures, journal entries, and weekly reviews, opening editors or navigating directly to the relevant workspace section.
-
-The public studio site includes clearly staged case studies for WORK//CTRL, jwld.store, Shop Inventory, SIC Pizza POS, Employee Barcodes, and ACM Weekly. Its contact form validates on the server, uses a honeypot and hashed-IP rate limit, and stores inquiries in the Neon `contact_inquiries` table without exposing database credentials to the browser.
-
-The four public service routes are generated from `lib/services.ts`: `/services/manufacturing-software`, `/services/workflow-automation`, `/services/small-business-websites`, and `/services/cnc-signage-systems`. The website route is publicly positioned as Websites & Online Marketplaces while retaining its stable URL. The same typed catalog drives homepage discovery, page copy, project references, planning ranges, FAQs, metadata, structured data, sitemap entries, and service-attributed contact-form preselection.
-
-Public identity is centralized in `lib/brand.ts`. The primary descriptor is **Industrial software and workflow automation**, supported by **Practical systems for manufacturers, shops, contractors, and small businesses.** That configuration drives the first-screen positioning, navigation wordmark, footer, metadata, manifest, structured data, social preview, and contact-email presentation. For production email, configure `CONTACT_FROM_EMAIL` as a verified sender such as `Brandon York | 4TWENTY.DEV <hello@4twenty.dev>`.
-
-The homepage and `/about` route use the verified founder profile in `lib/founder.ts`. Person and Organization structured data are rendered on the About page without employer names, credentials, or unverified claims. The approved local founder photograph and its replacement requirements are documented in `docs/FOUNDER_PHOTO.md`; `FounderPortrait` retains a neutral fallback if that asset is ever missing.
-
-Homepage engagement pricing is maintained in `lib/engagements.ts`. The three public planning offers—Workflow Audit, Workflow Sprint, and Custom Operations System—reuse that catalog for display copy, CTA destinations, contact-form preselection, and Workflow Audit lead metadata. The published amounts are planning ranges rather than automatic quotes; update the catalog to revise pricing or included work.
-
-Authenticated owners can review and manage those inquiries at `/dashboard/leads`, move them through new/contacted/archived states, and launch a pre-addressed email reply. Optional Resend notifications use `RESEND_API_KEY`, `CONTACT_NOTIFICATION_EMAIL`, and `CONTACT_FROM_EMAIL`; inquiry storage succeeds even when email delivery is not configured or temporarily fails.
-
-Archived inquiries remain restorable from the lead pipeline for 365 days before the authenticated retention cron permanently removes them. Workspace recovery keeps the newest 30 cloud snapshots and exposes the newest 10 in the dashboard; restoring one first captures the current workspace as a safety snapshot.
-
-The client pipeline supports qualification and proposal stages, private notes, follow-up dates, lead-to-project conversion, reusable proposal drafting, and verified Resend delivery events through `/api/webhooks/resend` using `RESEND_WEBHOOK_SECRET`.
-
-## Workflow Audit conversion path
-
-The public `/workflow-audit` route presents a focused paid operational review and stores qualified intake requests in the existing owner-only lead pipeline. Run `bun run db:migrate` after pulling this feature to add structured audit intake, daily duplicate protection, and the first-party `conversion_events` table.
-
-Workflow Audit submissions use the same privacy and abuse controls as the main contact channel: server-side field validation, a hidden honeypot, a salted hashed-IP limit, no client-side database credentials, and no advertising identifier. Exact duplicate payloads are ignored for the remainder of the UTC day. Analytics are first-party, cookieless, limited to an event allowlist, stripped of field values, keyed with a daily-rotating request hash, and automatically retained for no more than 90 days.
-
-Optional configuration:
-
-```env
-# HTTPS scheduling link shown after intake and in the page hero.
-# No scheduling vendor is selected by the application.
-WORKFLOW_AUDIT_BOOKING_URL=https://your-configured-scheduler.example/audit
-
-# Dedicated random salt for daily analytics request hashes.
-# Falls back to CONTACT_HASH_SALT or BETTER_AUTH_SECRET when omitted.
-ANALYTICS_HASH_SALT=<random secret>
-```
-
-No payment processing is included because the project has no supported payment architecture. The page clearly states that fit, scope, fee, and timing are confirmed directly before booking. If `WORKFLOW_AUDIT_BOOKING_URL` is absent or invalid, the confirmation state falls back to direct email follow-up.
-
-Tracked conversion events cover service and case-study views, Workflow Audit CTA clicks, both form funnels, successful server submissions, email and optional phone links, and external booking links. They are written to Neon and are not sent to Google Analytics, Meta, or another external analytics service. The full event list and privacy contract are documented in `docs/SEO-AND-MEASUREMENT.md`.
-
-The deployed project requires `DATABASE_URL`, provisioned automatically by the connected Neon integration. Application-level owner authentication protects the dashboard and every writable workspace API.
-
-## Live project intelligence
-
-Project cards with GitHub or deployment URLs automatically retrieve repository and deployment status through the server-side `/api/project-status` route. Public GitHub repositories and deployment reachability work without credentials.
-
-For private repositories and detailed Vercel deployment state, configure server-only `GITHUB_TOKEN`, `VERCEL_TOKEN`, and optionally `VERCEL_TEAM_ID` environment variables in Vercel. Tokens are never returned to the browser.
-
-## Deploy
-
-```bash
-vercel link --project 4twentydev
-vercel
-vercel --prod
-```
-
-The public pages render without external scheduling or payment services, but database-backed forms and private WORK//CTRL features require the environment variables documented above. The current production domain is `https://www.4twenty.dev`. The canonical repository is `rivetworks/website`; hosting migration and the `rivetworks.software` domain cutover are handled separately.
-
-## Structure
-
-```text
-app/                 App Router layout, page, and global theme
-components/          Dashboard and owned shadcn-style UI primitives
-lib/projects.ts      Typed project data
-lib/utils.ts         Class-name utility
-components.json      shadcn/ui configuration
-```
-
-The project intentionally has no `src` directory.
-# 4twentydev
-# 4twentydev
+Yorkstead Systems was formed as the unified commercial brand and platform. Retired historical identifiers (`4TWENTY`, `4twentydev`, `WORK//CTRL`, `RivetWorks`) are preserved strictly in backward-compatibility migration scripts, legacy local storage keys (`work-ctrl-workspace-v1`), and internal provenance records.

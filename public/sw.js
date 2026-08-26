@@ -33,7 +33,7 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   if (!event.data) return;
   const data = event.data.json();
-  event.waitUntil(self.registration.showNotification(data.title || "WORK//CTRL", {
+  event.waitUntil(self.registration.showNotification(data.title || "Yorkstead Studio", {
     body: data.body,
     icon: data.icon || "/icon",
     badge: data.badge || "/icon",

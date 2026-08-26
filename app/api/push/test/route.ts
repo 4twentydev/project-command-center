@@ -24,7 +24,7 @@ export async function POST(request: Request) {
       context.completed(404, { status: "not_found" });
       return jsonWithRequestId(context, { error: "Subscription not found" }, { status: 404 });
     }
-    await sendPush(rows[0].subscription as StoredPushSubscription, { title: "WORK//CTRL is online", body: "Daily task reminders are enabled on this device." });
+    await sendPush(rows[0].subscription as StoredPushSubscription, { title: "Yorkstead Studio is online", body: "Daily task reminders are enabled on this device." });
     context.completed(200, { status: "ok" });
     return jsonWithRequestId(context, { ok: true });
   } catch (error) {

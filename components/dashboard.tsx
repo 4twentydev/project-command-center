@@ -458,7 +458,7 @@ export function Dashboard() {
     } catch {
       setConfirmation({
         title: "Backup not recognized",
-        message: "Choose a JSON backup exported from WORK//CTRL.",
+        message: "Choose a valid JSON workspace backup file.",
         actionLabel: "Close",
         onConfirm: () => undefined,
       });
@@ -782,7 +782,7 @@ export function Dashboard() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_75%_-10%,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_32%)]" />
       <div className="relative mx-auto flex min-h-screen w-full min-w-0 max-w-[1600px]">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/70 bg-card/30 p-4 backdrop-blur lg:flex">
-          <div className="flex h-14 items-center gap-3 px-2"><div className="grid size-9 place-items-center rounded-lg border border-primary/30 bg-primary/10 text-primary"><Command className="size-5" /></div><div><div className="text-sm font-bold tracking-tight">WORK//CTRL</div><div className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">Project operating system</div></div></div>
+          <div className="flex h-14 items-center gap-3 px-2"><div className="grid size-9 place-items-center rounded-lg border border-primary/30 bg-primary/10 text-primary"><Command className="size-5" /></div><div><div className="text-sm font-bold tracking-tight">Yorkstead Studio</div><div className="font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">Command Center</div></div></div>
           <nav className="mt-6 space-y-1 text-sm">
             <div className="px-3 py-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Workspace</div>
             <a className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2.5 font-medium text-primary" href="#"><LayoutDashboard className="size-4" />Command center</a>
