@@ -1,7 +1,7 @@
 export const brand = {
   name: "Yorkstead Systems",
   wordmark: "YORKSTEAD",
-  domainSuffix: " SYSTEMS",
+  domainSuffix: ".SYSTEMS",
   siteURL: "https://yorkstead.com",
   email: "hello@yorkstead.com",
   founder: "Brandon York",
