@@ -8,7 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 export const metadata: Metadata = {
   title: "Page not found",
-  description: "The requested 4TWENTY.DEV page could not be found.",
+  description: "The requested Yorkstead Systems page could not be found.",
   alternates: { canonical: null },
   robots: { index: false, follow: true },
 };

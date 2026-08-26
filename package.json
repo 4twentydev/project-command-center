@@ -1,12 +1,12 @@
 {
-  "name": "rivetworks-website",
+  "name": "yorkstead-website",
   "version": "0.1.0",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rivetworks/website.git"
+    "url": "git+https://github.com/rivetworks/yorkstead-website.git"
   },
-  "homepage": "https://www.4twenty.dev",
+  "homepage": "https://yorkstead.com",
   "packageManager": "bun@1.3.14",
   "scripts": {
     "dev": "next dev",

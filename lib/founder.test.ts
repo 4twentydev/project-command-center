@@ -25,7 +25,7 @@ describe("public founder profile", () => {
     const [person, organization] = founderStructuredData["@graph"];
     expect(person["@type"]).toBe("Person");
     expect(person.name).toBe("Brandon York");
-    expect(person.image).toBe("https://www.4twenty.dev/media/founder/brandon-york.jpg");
+    expect(person.image).toBe("https://yorkstead.com/media/founder/brandon-york.jpg");
     expect(organization["@type"]).toBe("Organization");
     expect(organization.founder["@id"]).toBe(person["@id"]);
     expect(JSON.stringify(founderStructuredData)).not.toMatch(/employer|award|alumniOf|credential/i);

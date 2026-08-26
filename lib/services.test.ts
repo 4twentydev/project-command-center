@@ -55,7 +55,7 @@ describe("public service pages", () => {
     for (const service of publicServices) {
       const data = getServiceStructuredData(service);
       expect(data["@graph"].map((item) => item["@type"])).toEqual(["Service", "FAQPage", "BreadcrumbList"]);
-      expect(JSON.stringify(data)).toContain(`https://www.4twenty.dev/services/${service.slug}`);
+      expect(JSON.stringify(data)).toContain(`https://yorkstead.com/services/${service.slug}`);
       expect(getPublicService(service.slug)?.name).toBe(service.name);
     }
     expect(getPublicService("not-a-service")).toBeNull();

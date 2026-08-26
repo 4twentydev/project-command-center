@@ -144,7 +144,7 @@ export const publicServices = [
       { title: "Verify the full handoff", description: "Test direct routes, metadata, forms, catalog truth, cart or payment boundaries, notifications, failure paths, and the next operational step before launch." },
     ],
     caseStudyLinks: [
-      { slug: "work-control", relevance: "This live 4TWENTY.DEV system includes the public site, private owner access, inquiry capture, lead follow-up, and service attribution; it is an internal system rather than a client result." },
+      { slug: "work-control", relevance: "This live Yorkstead Systems system includes the public site, private owner access, inquiry capture, lead follow-up, and service attribution; it is an internal system rather than a client result." },
       { slug: "jwld-store", relevance: "A live specialty-goods storefront demonstrating branded discovery, product records, inventory-aware merchandising, cart interaction, and a custom-commission path." },
     ],
     typicalEngagement: { label: "Typically $1,500–$3,500 for a focused site; commerce and marketplace systems typically start at $5,000", note: "Planning range only. Catalog size, seller roles, payments, migration, fulfillment rules, approved assets, integrations, and ongoing support determine final scope." },
