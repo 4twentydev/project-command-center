@@ -43,7 +43,7 @@ function createAuth() {
               ownerEmail: configuration.ownerEmail,
               requestedEmail: user.email.trim().toLowerCase(),
               expectedToken: configuration.bootstrapToken,
-              providedToken: context?.request?.headers.get("x-owner-bootstrap-token") ?? null,
+              providedToken: context?.getHeader("x-owner-bootstrap-token") ?? null,
               ownerExists: await authUserExists(),
             });
             if (!allowed) return false;
